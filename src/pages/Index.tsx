@@ -1,34 +1,14 @@
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
+import HeroSection from "@/components/HeroSection";
 
 const Index = () => {
   return (
     <>
       <Header />
       <main className="min-h-screen bg-background">
-        {/* Hero Section */}
-        <section className="relative pt-32 lg:pt-40 pb-20 lg:pb-32">
-          <div className="container-bnb">
-            <div className="max-w-4xl mx-auto text-center animate-fade-in">
-              <h1 className="text-display text-5xl lg:text-7xl mb-6 text-foreground">
-                Terrazza
-                <span className="block text-terracotta">Santa Chiara</span>
-              </h1>
-              <p className="text-body text-xl lg:text-2xl mb-8 text-muted-foreground max-w-3xl mx-auto">
-                Un rifugio elegante nel cuore della Toscana, dove l'autenticità italiana incontra il comfort moderno
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button variant="terracotta" size="lg" className="text-lg">
-                  Prenota il tuo soggiorno
-                </Button>
-                <Button variant="sage-outline" size="lg" className="text-lg">
-                  Scopri le camere
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
+        <HeroSection />
+        
         {/* Features Preview */}
         <section className="py-16 lg:py-24">
           <div className="container-bnb">
