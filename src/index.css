@@ -2,41 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Terrazza Santa Chiara B&B Design System
+Colori ispirati ai materiali naturali toscani: pietra calda, salvia, terracotta
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base colors - Terrazza Santa Chiara palette */
+    --background: 60 25% 98%; /* #FAFAF7 cream */
+    --foreground: 0 0% 17%; /* #2C2C2C charcoal */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 60 25% 98%;
+    --card-foreground: 0 0% 17%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 60 25% 98%;
+    --popover-foreground: 0 0% 17%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Warm stone */
+    --primary: 36 47% 89%; /* #F5E6D3 warm stone */
+    --primary-foreground: 0 0% 17%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Sage green */
+    --secondary: 73 26% 49%; /* #8B9A5B sage green */
+    --secondary-foreground: 60 25% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Accent - Terracotta */
+    --accent: 20 48% 53%; /* #C4704A terracotta */
+    --accent-foreground: 60 25% 98%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Muted tones */
+    --muted: 36 47% 94%; /* Lighter warm stone */
+    --muted-foreground: 0 0% 45%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 60 25% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 36 47% 91%;
+    --input: 36 47% 94%;
+    --ring: 20 48% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    
+    /* Custom B&B specific variables */
+    --stone-light: 36 47% 95%;
+    --stone-dark: 36 47% 85%;
+    --sage-light: 73 26% 65%;
+    --sage-dark: 73 26% 35%;
+    --terracotta-light: 20 48% 65%;
+    --terracotta-dark: 20 48% 40%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--stone-dark)));
+    --gradient-warm: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--terracotta-dark)));
+    --gradient-natural: linear-gradient(180deg, hsl(var(--background)), hsl(var(--stone-light)));
+    
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(var(--accent) / 0.15);
+    --shadow-warm: 0 8px 30px -8px hsl(var(--terracotta-dark) / 0.25);
+    --shadow-elegant: 0 12px 40px -12px hsl(var(--foreground) / 0.08);
+    
+    /* Spacing system */
+    --space-xs: 0.5rem;   /* 8px */
+    --space-sm: 1rem;     /* 16px */
+    --space-md: 1.5rem;   /* 24px */
+    --space-lg: 2rem;     /* 32px */
+    --space-xl: 3rem;     /* 48px */
+    --space-2xl: 4rem;    /* 64px */
+    --space-3xl: 6rem;    /* 96px */
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,41 +88,40 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 17%;
+    --foreground: 60 25% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 17%;
+    --card-foreground: 60 25% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 17%;
+    --popover-foreground: 60 25% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 36 47% 85%;
+    --primary-foreground: 0 0% 17%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 73 26% 35%;
+    --secondary-foreground: 60 25% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 20 48% 40%;
+    --accent-foreground: 60 25% 98%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 36 47% 25%;
+    --muted-foreground: 60 25% 75%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 60 25% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 36 47% 25%;
+    --input: 36 47% 25%;
+    --ring: 20 48% 53%;
+    
+    --stone-light: 36 47% 30%;
+    --stone-dark: 36 47% 20%;
+    --sage-light: 73 26% 45%;
+    --sage-dark: 73 26% 25%;
+    --terracotta-light: 20 48% 50%;
+    --terracotta-dark: 20 48% 30%;
   }
 }
 
@@ -100,6 +131,74 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-inter antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-playfair;
+  }
+}
+
+@layer components {
+  /* Container utilities */
+  .container-bnb {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .container-narrow {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Button variants */
+  .btn-terracotta {
+    @apply bg-terracotta text-terracotta-foreground hover:bg-terracotta-dark transition-colors duration-300 rounded-lg px-6 py-3 font-medium shadow-soft hover:shadow-warm;
+  }
+
+  .btn-sage-outline {
+    @apply border-2 border-sage text-sage hover:bg-sage hover:text-sage-foreground transition-all duration-300 rounded-lg px-6 py-3 font-medium;
+  }
+
+  .btn-stone {
+    @apply bg-stone text-stone-dark hover:bg-stone-dark hover:text-background transition-colors duration-300 rounded-lg px-6 py-3 font-medium shadow-soft;
+  }
+
+  /* Card styles */
+  .card-elegant {
+    @apply bg-card border border-border rounded-xl shadow-elegant hover:shadow-warm transition-shadow duration-300 p-6;
+  }
+
+  .card-feature {
+    @apply bg-gradient-natural border border-stone-light rounded-lg shadow-soft hover:shadow-warm transition-all duration-300 p-6 hover:scale-105;
+  }
+
+  /* Typography utilities */
+  .text-heading {
+    @apply font-playfair font-semibold tracking-tight;
+  }
+
+  .text-display {
+    @apply font-playfair font-bold tracking-tight;
+  }
+
+  .text-body {
+    @apply font-inter leading-relaxed;
+  }
+
+  /* Animation utilities */
+  .animate-on-scroll {
+    @apply opacity-0 translate-y-4 transition-all duration-700 ease-out;
+  }
+
+  .animate-on-scroll.in-view {
+    @apply opacity-100 translate-y-0;
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  .hover-glow {
+    @apply transition-shadow duration-300 hover:shadow-warm;
   }
 }
