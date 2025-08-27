@@ -502,7 +502,9 @@ const SearchResults = () => {
                               )}
                             </div>
                             
-                            <Link to={`/rooms/${room.slug}`}>
+                            <Link 
+                              to={`/rooms/${room.slug}?checkIn=${searchParams.get('checkIn') || ''}&checkOut=${searchParams.get('checkOut') || ''}&guests=${searchParams.get('guests') || ''}`}
+                            >
                               <Button 
                                 variant="terracotta" 
                                 className="w-full"

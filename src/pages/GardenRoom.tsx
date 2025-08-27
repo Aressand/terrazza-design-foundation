@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Check, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { parseISO, differenceInDays } from "date-fns";
 import Header from "@/components/Header";
 import SEOHead from "@/components/SEOHead";
 import BookingWidget from "@/components/booking/BookingWidget";
@@ -17,6 +18,21 @@ import gardenRoomView from "@/assets/garden-room-view.jpg";
 
 const GardenRoom = () => {
   const [selectedImage, setSelectedImage] = useState(0);
+  const [searchParams] = useSearchParams();
+  
+  // Get URL parameters
+  const checkInParam = searchParams.get('checkIn');
+  const checkOutParam = searchParams.get('checkOut');  
+  const guestsParam = searchParams.get('guests');
+  
+  // Parse dates if they exist
+  const presetCheckIn = checkInParam ? parseISO(checkInParam) : undefined;
+  const presetCheckOut = checkOutParam ? parseISO(checkOutParam) : undefined;
+  const presetGuests = guestsParam ? parseInt(guestsParam) : undefined;
+  
+  // Calculate nights and total price if dates are preset
+  const nights = presetCheckIn && presetCheckOut ? differenceInDays(presetCheckOut, presetCheckIn) : 0;
+  const totalPrice = nights > 0 ? 95 * nights + 25 : 0; // €95/night + €25 cleaning fee
 
   const galleryImages = [
     { src: gardenRoomHero, alt: "Private rooftop garden" },
@@ -199,6 +215,9 @@ const GardenRoom = () => {
                   roomType="garden"
                   roomName="Garden Room Sanctuary" 
                   capacity={2}
+                  presetCheckIn={presetCheckIn}
+                  presetCheckOut={presetCheckOut}
+                  presetGuests={presetGuests}
                 />
               </div>
             </div>
