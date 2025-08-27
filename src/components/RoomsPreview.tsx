@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import gardenRoomImg from "@/assets/garden-room.jpg";
 import terraceApartmentImg from "@/assets/terrace-apartment.jpg";
 import modernApartmentImg from "@/assets/modern-apartment.jpg";
@@ -84,13 +85,26 @@ const RoomsPreview = () => {
                   {room.description}
                 </CardDescription>
                 
-                <Button 
-                  variant="outline" 
-                  className="w-full group-hover:border-sage group-hover:text-sage transition-colors duration-300"
-                  aria-label={`Discover ${room.title} details and availability`}
-                >
-                  Discover This Room
-                </Button>
+{room.id === 1 ? (
+                  <Button 
+                    variant="outline" 
+                    className="w-full group-hover:border-sage group-hover:text-sage transition-colors duration-300"
+                    aria-label={`Discover ${room.title} details and availability`}
+                    asChild
+                  >
+                    <Link to="/rooms/garden-room">
+                      Discover This Room
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    className="w-full group-hover:border-sage group-hover:text-sage transition-colors duration-300"
+                    aria-label={`Discover ${room.title} details and availability`}
+                  >
+                    Discover This Room
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
