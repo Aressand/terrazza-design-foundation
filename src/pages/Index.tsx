@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
+import RoomsPreview from "@/components/RoomsPreview";
 
 const Index = () => {
   return (
@@ -8,6 +9,9 @@ const Index = () => {
       <Header />
       <main className="min-h-screen bg-background">
         <HeroSection />
+        
+        {/* Rooms Preview */}
+        <RoomsPreview />
         
         {/* Features Preview */}
         <section className="py-16 lg:py-24">
