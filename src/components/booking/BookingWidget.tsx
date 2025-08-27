@@ -13,6 +13,9 @@ interface BookingWidgetProps {
   roomName: string;
   capacity: number;
   className?: string;
+  presetCheckIn?: Date;
+  presetCheckOut?: Date;
+  presetGuests?: number;
 }
 
 interface BookingFormData {
@@ -30,10 +33,13 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
   roomType,
   roomName,
   capacity,
-  className
+  className,
+  presetCheckIn,
+  presetCheckOut,
+  presetGuests
 }) => {
-  const [checkIn, setCheckIn] = useState<Date>();
-  const [checkOut, setCheckOut] = useState<Date>();
+  const [checkIn, setCheckIn] = useState<Date>(presetCheckIn);
+  const [checkOut, setCheckOut] = useState<Date>(presetCheckOut);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isBookingComplete, setIsBookingComplete] = useState(false);
   const [bookingData, setBookingData] = useState<BookingFormData | null>(null);
@@ -137,7 +143,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             {canBook ? (
               <div className="flex items-center gap-2">
                 <Calendar size={18} />
-                Book Now - €{totalPrice}
+                Book for €{totalPrice} total ({nights} night{nights !== 1 ? 's' : ''})
               </div>
             ) : (
               'Select Dates to Book'
