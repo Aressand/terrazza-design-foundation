@@ -1,4 +1,6 @@
 import Header from "@/components/Header";
+import SEOHead from "@/components/SEOHead";
+import MobileContactActions from "@/components/MobileContactActions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, Shield, Heart, Phone, MapPin, Mail, Users } from "lucide-react";
 
@@ -40,8 +42,14 @@ const About = () => {
 
   return (
     <>
+      <SEOHead
+        title="About Terrazza Santa Chiara - Our Story & Services"
+        description="Discover the story behind Terrazza Santa Chiara B&B, our policies, services, and what makes our location 30m from Santa Chiara Basilica so special."
+        canonical="https://terrazzasantachiara.com/about"
+      />
       <Header />
-      <main className="min-h-screen bg-background">
+      <MobileContactActions />
+      <main className="min-h-screen bg-background pb-20 md:pb-0">
         {/* Hero Section */}
         <section className="relative h-[70vh] overflow-hidden">
           <img 

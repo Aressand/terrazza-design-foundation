@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Header from "@/components/Header";
+import SEOHead from "@/components/SEOHead";
+import MobileContactActions from "@/components/MobileContactActions";
 import { MapPin, Phone, Mail, MessageCircle, Clock, Car, Utensils, Camera, Church } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -130,8 +132,14 @@ const Contact = () => {
 
   return (
     <>
+      <SEOHead
+        title="Contact Terrazza Santa Chiara B&B - Book Your Assisi Experience"
+        description="Contact us to book your stay at Terrazza Santa Chiara B&B. Phone, WhatsApp, email, and booking form. Located Via Sermei, Assisi. Open 9AM-8PM daily."
+        canonical="https://terrazzasantachiara.com/contact"
+      />
       <Header />
-      <main className="min-h-screen bg-background py-16">
+      <MobileContactActions />
+      <main className="min-h-screen bg-background py-16 pb-24 md:pb-16">
         <div className="container-bnb">
           <div className="text-center mb-12">
             <h1 className="text-4xl lg:text-5xl font-playfair text-sage mb-4">

@@ -4,7 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import SEOHead from "@/components/SEOHead";
 import BookingWidget from "@/components/booking/BookingWidget";
+import MobileOptimizedImage from "@/components/MobileOptimizedImage";
 
 // Import images
 import gardenRoomHero from "@/assets/garden-room.jpg";
@@ -36,27 +38,58 @@ const GardenRoom = () => {
 
   return (
     <>
+      <SEOHead
+        title="Garden Room Sanctuary - Private Rooftop Garden with Basilica Views"
+        description="Wake up to church bells just 30m from Santa Chiara Basilica. Private rooftop garden, queen bed, luxury amenities. €85-120/night. Book your authentic Assisi experience."
+        canonical="https://terrazzasantachiara.com/rooms/garden-room"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "AccommodationRoom",
+          "name": "Garden Room Sanctuary",
+          "description": "Private rooftop garden room with panoramic views, just 30 meters from Santa Chiara Basilica",
+          "floorSize": {
+            "@type": "QuantitativeValue",
+            "value": "25",
+            "unitCode": "MTK"
+          },
+          "occupancy": {
+            "@type": "QuantitativeValue",
+            "maxValue": 2
+          },
+          "bed": {
+            "@type": "BedDetails",
+            "typeOfBed": "Queen bed"
+          },
+          "amenityFeature": [
+            {"@type": "LocationFeatureSpecification", "name": "Private garden"},
+            {"@type": "LocationFeatureSpecification", "name": "Air conditioning"},
+            {"@type": "LocationFeatureSpecification", "name": "Free WiFi"}
+          ]
+        }}
+      />
       <Header />
       <main className="min-h-screen bg-background">
         {/* Hero Image */}
         <section className="relative h-[60vh] overflow-hidden">
-          <img 
+          <MobileOptimizedImage 
             src={gardenRoomHero} 
-            alt="Garden Room Sanctuary" 
+            alt="Garden Room Sanctuary with private rooftop garden and Assisi views" 
             className="w-full h-full object-cover"
+            priority={true}
           />
           <div className="absolute inset-0 bg-stone/40" />
-          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-white">
-            <h1 className="text-4xl lg:text-6xl font-playfair mb-4">Garden Room Sanctuary</h1>
-            <p className="text-xl lg:text-2xl">Perfect for 2 guests</p>
+          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-white px-4">
+            <h1 className="text-3xl md:text-4xl lg:text-6xl font-playfair mb-4">Garden Room Sanctuary</h1>
+            <p className="text-lg md:text-xl lg:text-2xl">Perfect for 2 guests</p>
           </div>
           
           {/* Back Navigation */}
           <Link 
             to="/" 
-            className="absolute top-8 left-8 bg-white/20 backdrop-blur-sm rounded-full p-3 text-white hover:bg-white/30 transition-colors"
+            className="absolute top-4 left-4 md:top-8 md:left-8 bg-white/20 backdrop-blur-sm rounded-full p-2 md:p-3 text-white hover:bg-white/30 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Back to homepage"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </Link>
         </section>
 
@@ -67,7 +100,7 @@ const GardenRoom = () => {
               {/* Main Image */}
               <div className="lg:col-span-8">
                 <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-soft">
-                  <img 
+                  <MobileOptimizedImage 
                     src={galleryImages[selectedImage].src} 
                     alt={galleryImages[selectedImage].alt}
                     className="w-full h-full object-cover hover-scale cursor-pointer"
@@ -82,11 +115,12 @@ const GardenRoom = () => {
                     <button
                       key={index}
                       onClick={() => setSelectedImage(index)}
-                      className={`aspect-square rounded-lg overflow-hidden shadow-soft transition-all ${
+                      className={`aspect-square rounded-lg overflow-hidden shadow-soft transition-all min-w-[44px] min-h-[44px] ${
                         selectedImage === index ? 'ring-2 ring-sage' : 'hover:opacity-80'
                       }`}
+                      aria-label={`View ${image.alt}`}
                     >
-                      <img 
+                      <MobileOptimizedImage 
                         src={image.src} 
                         alt={image.alt}
                         className="w-full h-full object-cover"
