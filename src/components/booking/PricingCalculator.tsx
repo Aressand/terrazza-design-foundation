@@ -4,7 +4,7 @@ import { format, differenceInDays, getMonth } from "date-fns";
 interface PricingCalculatorProps {
   checkIn: Date | undefined;
   checkOut: Date | undefined;
-  roomType: 'garden' | 'stone' | 'terrace';
+  roomType: 'garden' | 'stone' | 'terrace' | 'modern';
   className?: string;
 }
 
@@ -30,6 +30,11 @@ const PricingCalculator: React.FC<PricingCalculatorProps> = ({
       terrace: {
         low: 95,
         mid: 105,
+        high: 140
+      },
+      modern: {
+        low: 110,
+        mid: 125,
         high: 140
       }
     };

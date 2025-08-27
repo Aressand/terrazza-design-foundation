@@ -85,26 +85,21 @@ const RoomsPreview = () => {
                   {room.description}
                 </CardDescription>
                 
-{room.id === 1 ? (
-                  <Button 
-                    variant="outline" 
-                    className="w-full group-hover:border-sage group-hover:text-sage transition-colors duration-300"
-                    aria-label={`Discover ${room.title} details and availability`}
-                    asChild
-                  >
-                    <Link to="/rooms/garden-room">
-                      Discover This Room
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    className="w-full group-hover:border-sage group-hover:text-sage transition-colors duration-300"
-                    aria-label={`Discover ${room.title} details and availability`}
-                  >
+                <Button 
+                  variant="outline" 
+                  className="w-full group-hover:border-sage group-hover:text-sage transition-colors duration-300"
+                  aria-label={`Discover ${room.title} details and availability`}
+                  asChild
+                >
+                  <Link to={
+                    room.id === 1 ? "/rooms/garden-room" :
+                    room.id === 2 ? "/rooms/terrace-apartment" :
+                    room.id === 3 ? "/rooms/modern-apartment" :
+                    "/rooms/stone-vault-apartment"
+                  }>
                     Discover This Room
-                  </Button>
-                )}
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ))}
