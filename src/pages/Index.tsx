@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import RoomsPreview from "@/components/RoomsPreview";
+import CompetitiveAdvantages from "@/components/CompetitiveAdvantages";
 
 const Index = () => {
   return (
@@ -12,6 +13,9 @@ const Index = () => {
         
         {/* Rooms Preview */}
         <RoomsPreview />
+        
+        {/* Competitive Advantages */}
+        <CompetitiveAdvantages />
         
         {/* Features Preview */}
         <section className="py-16 lg:py-24">
