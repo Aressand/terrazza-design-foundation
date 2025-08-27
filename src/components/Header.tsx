@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, X, Phone, Globe } from 'lucide-react';
+import { Link } from "react-router-dom";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -17,10 +18,10 @@ const Header = () => {
   }, []);
 
   const navigationItems = [
-    { label: 'Home', href: '#' },
-    { label: 'Rooms', href: '#rooms' },
-    { label: 'About', href: '#about' },
-    { label: 'Contact', href: '#contact' }
+    { label: 'Home', href: '/' },
+    { label: 'Rooms', href: '/#rooms' },
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' }
   ];
 
   const toggleLanguage = () => {
@@ -40,8 +41,8 @@ const Header = () => {
           
           {/* Logo */}
           <div className="flex-shrink-0">
-            <a 
-              href="/" 
+            <Link 
+              to="/" 
               className="group flex flex-col leading-none hover-glow transition-all duration-300"
             >
               <span className="font-playfair font-semibold text-2xl lg:text-3xl text-stone-dark group-hover:text-terracotta transition-colors duration-300">
@@ -50,20 +51,31 @@ const Header = () => {
               <span className="font-playfair font-medium text-lg lg:text-xl text-sage tracking-wide group-hover:text-sage-dark transition-colors duration-300">
                 Santa Chiara
               </span>
-            </a>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
             {navigationItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="text-body font-medium text-foreground hover:text-terracotta transition-colors duration-300 relative group py-2"
-              >
-                {item.label}
-                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-terracotta scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
-              </a>
+              item.href.startsWith('/#') ? (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="text-body font-medium text-foreground hover:text-terracotta transition-colors duration-300 relative group py-2"
+                >
+                  {item.label}
+                  <span className="absolute inset-x-0 bottom-0 h-0.5 bg-terracotta scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                </a>
+              ) : (
+                <Link
+                  key={item.label}
+                  to={item.href}
+                  className="text-body font-medium text-foreground hover:text-terracotta transition-colors duration-300 relative group py-2"
+                >
+                  {item.label}
+                  <span className="absolute inset-x-0 bottom-0 h-0.5 bg-terracotta scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                </Link>
+              )
             ))}
           </nav>
 
@@ -138,15 +150,27 @@ const Header = () => {
                   <nav className="flex-1 py-8">
                     <div className="space-y-6">
                       {navigationItems.map((item, index) => (
-                        <a
-                          key={item.label}
-                          href={item.href}
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="block text-lg font-medium text-foreground hover:text-terracotta transition-colors duration-300 py-2 animate-slide-up"
-                          style={{ animationDelay: `${index * 0.1}s` }}
-                        >
-                          {item.label}
-                        </a>
+                        item.href.startsWith('/#') ? (
+                          <a
+                            key={item.label}
+                            href={item.href}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="block text-lg font-medium text-foreground hover:text-terracotta transition-colors duration-300 py-2 animate-slide-up"
+                            style={{ animationDelay: `${index * 0.1}s` }}
+                          >
+                            {item.label}
+                          </a>
+                        ) : (
+                          <Link
+                            key={item.label}
+                            to={item.href}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="block text-lg font-medium text-foreground hover:text-terracotta transition-colors duration-300 py-2 animate-slide-up"
+                            style={{ animationDelay: `${index * 0.1}s` }}
+                          >
+                            {item.label}
+                          </Link>
+                        )
                       ))}
                     </div>
                   </nav>
