@@ -1,0 +1,23 @@
+{
+  "name": "Terrazza Santa Chiara B&B",
+  "short_name": "Terrazza Santa Chiara",
+  "description": "Exclusive B&B accommodation just 30 meters from Santa Chiara Basilica in Assisi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAF7",
+  "theme_color": "#8B9A5B",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["travel", "hospitality", "accommodation"],
+  "lang": "en-US"
+}

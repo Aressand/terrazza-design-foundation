@@ -125,18 +125,76 @@ Colori ispirati ai materiali naturali toscani: pietra calda, salvia, terracotta
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
+/* Performance and mobile optimizations */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
-  body {
-    @apply bg-background text-foreground font-inter antialiased;
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-playfair;
+body {
+  @apply bg-background text-foreground font-inter antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeSpeed;
+  line-height: 1.5;
+}
+
+/* Improve focus visibility for accessibility */
+:focus-visible {
+  outline: 2px solid hsl(var(--sage));
+  outline-offset: 2px;
+}
+
+/* Remove default focus styles */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Touch target optimization */
+button, 
+a, 
+input, 
+textarea, 
+select, 
+[role="button"], 
+[role="link"], 
+[tabindex]:not([tabindex="-1"]) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Improve text selection */
+::selection {
+  background-color: hsl(var(--sage-light) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+/* Optimize images for performance */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-playfair;
+  text-wrap: balance;
 }
 
 @layer components {
@@ -184,7 +242,7 @@ Colori ispirati ai materiali naturali toscani: pietra calda, salvia, terracotta
     @apply font-inter leading-relaxed;
   }
 
-  /* Animation utilities */
+  /* Animation utilities with mobile optimization */
   .animate-on-scroll {
     @apply opacity-0 translate-y-4 transition-all duration-700 ease-out;
   }
@@ -193,12 +251,64 @@ Colori ispirati ai materiali naturali toscani: pietra calda, salvia, terracotta
     @apply opacity-100 translate-y-0;
   }
 
-  /* Hover effects */
+  /* Hover effects with mobile considerations */
   .hover-lift {
-    @apply transition-transform duration-300 hover:-translate-y-1;
+    @apply transition-transform duration-300;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .hover-lift:hover {
+      @apply -translate-y-1;
+    }
   }
 
   .hover-glow {
-    @apply transition-shadow duration-300 hover:shadow-warm;
+    @apply transition-shadow duration-300;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .hover-glow:hover {
+      @apply shadow-warm;
+    }
+  }
+
+  /* Mobile-specific utilities */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .safe-area-inset {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Loading states */
+  .loading-skeleton {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Smooth scroll for mobile */
+  .smooth-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .card-elegant,
+    .card-feature {
+      border-width: 2px;
+    }
   }
 }

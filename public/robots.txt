@@ -1,14 +1,18 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+
+# Optimize crawling
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://terrazzasantachiara.com/sitemap.xml
+
+# Block admin and private areas (if any)
+Disallow: /admin/
+Disallow: /.well-known/
+
+# Allow important pages
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /rooms/
