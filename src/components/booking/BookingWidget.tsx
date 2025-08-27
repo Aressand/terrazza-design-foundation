@@ -9,7 +9,7 @@ import { differenceInDays } from "date-fns";
 import { Calendar, Euro, Users, Check } from 'lucide-react';
 
 interface BookingWidgetProps {
-  roomType: 'garden' | 'stone' | 'terrace';
+  roomType: 'garden' | 'stone' | 'terrace' | 'modern';
   roomName: string;
   capacity: number;
   className?: string;
