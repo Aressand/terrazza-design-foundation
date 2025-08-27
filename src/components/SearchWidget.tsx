@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { format } from "date-fns";
 import { CalendarIcon, Users, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -16,20 +17,71 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const SearchWidget = () => {
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [guests, setGuests] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSearch = async () => {
+    // Validation
+    if (!checkIn || !checkOut || !guests) {
+      toast({
+        title: "Missing Information",
+        description: "Please select check-in date, check-out date, and number of guests.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate dates
+    if (checkOut <= checkIn) {
+      toast({
+        title: "Invalid Dates",
+        description: "Check-out date must be after check-in date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (checkIn < new Date()) {
+      toast({
+        title: "Invalid Date",
+        description: "Check-in date cannot be in the past.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate search loading
-    setTimeout(() => {
+    
+    try {
+      // Format dates to YYYY-MM-DD
+      const checkInFormatted = format(checkIn, 'yyyy-MM-dd');
+      const checkOutFormatted = format(checkOut, 'yyyy-MM-dd');
+      
+      // Navigate to search results with query parameters
+      const searchParams = new URLSearchParams({
+        checkIn: checkInFormatted,
+        checkOut: checkOutFormatted,
+        guests: guests
+      });
+      
+      navigate(`/search-results?${searchParams.toString()}`);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred while processing your search. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      console.log('Search:', { checkIn, checkOut, guests });
-    }, 1500);
+    }
   };
 
   const isFormValid = checkIn && checkOut && guests;
