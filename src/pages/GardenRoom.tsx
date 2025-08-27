@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
+import BookingWidget from "@/components/booking/BookingWidget";
 
 // Import images
 import gardenRoomHero from "@/assets/garden-room.jpg";
@@ -158,47 +159,13 @@ const GardenRoom = () => {
                 </div>
               </div>
 
-              {/* Booking Card */}
+              {/* Booking Widget */}
               <div className="lg:col-span-1">
-                <Card className="sticky top-8 shadow-elegant">
-                  <CardContent className="p-6">
-                    <div className="text-center mb-6">
-                      <h3 className="text-2xl font-playfair text-sage mb-2">
-                        Reserve Your Garden Sanctuary
-                      </h3>
-                      <div className="text-3xl font-bold text-terracotta mb-1">
-                        From €95<span className="text-base font-normal text-muted-foreground">/night</span>
-                      </div>
-                    </div>
-
-                    <Button 
-                      variant="terracotta" 
-                      size="lg" 
-                      className="w-full mb-4"
-                    >
-                      Check Availability
-                    </Button>
-
-                    <p className="text-sm text-muted-foreground text-center">
-                      (Full booking system coming next)
-                    </p>
-
-                    <div className="mt-6 pt-6 border-t border-border">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Check className="w-4 h-4 text-sage" />
-                        <span className="text-sm text-muted-foreground">Free cancellation</span>
-                      </div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Check className="w-4 h-4 text-sage" />
-                        <span className="text-sm text-muted-foreground">Best rate guarantee</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-sage" />
-                        <span className="text-sm text-muted-foreground">Instant confirmation</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <BookingWidget
+                  roomType="garden"
+                  roomName="Garden Room Sanctuary" 
+                  capacity={2}
+                />
               </div>
             </div>
           </div>
