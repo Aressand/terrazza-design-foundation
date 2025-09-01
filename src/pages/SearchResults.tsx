@@ -1,63 +1,27 @@
+// src/pages/SearchResults.tsx - UPDATED with Real Availability
+
 import { useSearchParams, Link } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import SEOHead from "@/components/SEOHead";
 import { format, differenceInDays, parseISO } from "date-fns";
-import { Filter, X, Search } from "lucide-react";
+import { Filter, X, Search, Loader2, AlertCircle, CalendarX } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useSearchAvailability } from "@/hooks/useSearchAvailability";
 
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Filter states
   const [priceRange, setPriceRange] = useState("any");
   const [roomTypes, setRoomTypes] = useState<string[]>([]);
   const [specialFeatures, setSpecialFeatures] = useState<string[]>([]);
-
-  // Mock rooms data with filter properties
-  const mockRooms = [
-    {
-      id: 1,
-      name: "Garden Room Sanctuary",
-      capacity: 2,
-      basePrice: 95,
-      slug: "garden-room",
-      type: "private-room",
-      features: ["private-garden"]
-    },
-    {
-      id: 2,
-      name: "Panoramic Terrace Apartment",
-      capacity: 2,
-      basePrice: 105,
-      slug: "terrace-apartment",
-      type: "full-apartment",
-      features: ["panoramic-terrace"]
-    },
-    {
-      id: 3,
-      name: "Contemporary Luxury Apartment", 
-      capacity: 4,
-      basePrice: 130,
-      slug: "modern-apartment",
-      type: "full-apartment",
-      features: ["modern-luxury"]
-    },
-    {
-      id: 4,
-      name: "Historic Stone Vault Apartment",
-      capacity: 4,
-      basePrice: 140,
-      slug: "stone-vault-apartment",
-      type: "full-apartment",
-      features: ["historic-stone"]
-    }
-  ];
 
   // Parse URL parameters
   const checkInParam = searchParams.get('checkIn');
@@ -85,26 +49,53 @@ const SearchResults = () => {
   const guests = guestsParam ? parseInt(guestsParam) : 1;
   const nights = checkInDate && checkOutDate && isValidDates ? differenceInDays(checkOutDate, checkInDate) : 0;
 
-  // Filter logic
-  const applyFilters = (rooms: typeof mockRooms) => {
+  // Use real availability checking
+  const { 
+    availableRooms, 
+    unavailableRooms, 
+    loading, 
+    error 
+  } = useSearchAvailability({ 
+    checkIn: checkInDate, 
+    checkOut: checkOutDate, 
+    guests 
+  });
+
+  // Filter logic for available rooms only
+  const applyFilters = (rooms: typeof availableRooms) => {
     return rooms.filter(room => {
-      // Guest capacity filter
-      if (guests > room.capacity) return false;
-      
       // Price range filter
       if (priceRange !== "any") {
-        if (priceRange === "low" && (room.basePrice < 80 || room.basePrice > 120)) return false;
-        if (priceRange === "medium" && (room.basePrice < 120 || room.basePrice > 160)) return false;
-        if (priceRange === "high" && room.basePrice < 160) return false;
+        if (priceRange === "low" && (room.base_price < 80 || room.base_price > 120)) return false;
+        if (priceRange === "medium" && (room.base_price < 120 || room.base_price > 160)) return false;
+        if (priceRange === "high" && room.base_price < 160) return false;
       }
       
-      // Room type filter
-      if (roomTypes.length > 0 && !roomTypes.includes(room.type)) return false;
+      // Room type filter (map our roomType to display categories)
+      if (roomTypes.length > 0) {
+        const roomCategory = room.roomType === 'garden' ? 'private-room' : 'full-apartment';
+        if (!roomTypes.includes(roomCategory)) return false;
+      }
       
-      // Special features filter
+      // Special features filter (simplified for now)
       if (specialFeatures.length > 0) {
-        const hasFeature = specialFeatures.some(feature => room.features.includes(feature));
-        if (!hasFeature) return false;
+        // This could be enhanced with actual room features from database
+        // For now, simple mapping based on room type
+        const hasRequestedFeature = specialFeatures.some(feature => {
+          switch (feature) {
+            case 'private-garden':
+              return room.roomType === 'garden';
+            case 'panoramic-terrace':
+              return room.roomType === 'terrace';
+            case 'historic-stone':
+              return room.roomType === 'stone';
+            case 'modern-luxury':
+              return room.roomType === 'modern';
+            default:
+              return false;
+          }
+        });
+        if (!hasRequestedFeature) return false;
       }
       
       return true;
@@ -112,7 +103,7 @@ const SearchResults = () => {
   };
 
   // Filter available rooms
-  const availableRooms = applyFilters(mockRooms);
+  const filteredRooms = applyFilters(availableRooms);
 
   // Count active filters
   const activeFiltersCount = 
@@ -153,6 +144,7 @@ const SearchResults = () => {
   const getErrorMessage = () => {
     if (!hasValidParams) return "Please select your dates and guests";
     if (!isValidDates) return "Invalid dates selected";
+    if (error) return `Unable to check availability: ${error}`;
     return null;
   };
 
@@ -170,370 +162,293 @@ const SearchResults = () => {
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-6xl mx-auto">
               {errorMessage ? (
-                <div className="text-center">
-                  <h1 className="font-playfair text-3xl font-bold text-foreground mb-4">
-                    Search Results
-                  </h1>
-                  <p className="text-lg text-muted-foreground mb-8">{errorMessage}</p>
-                  <Link to="/">
-                    <Button variant="outline" className="hover:bg-primary hover:text-primary-foreground">
-                      ← Modify Search
-                    </Button>
-                  </Link>
-                </div>
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
               ) : (
-                <>
-                  <h1 className="font-playfair text-3xl font-bold text-foreground mb-4">
-                    Available Accommodations for {guests} guest{guests !== 1 ? 's' : ''}
-                  </h1>
-                  
-                  <div className="flex flex-wrap items-center gap-4 text-lg text-muted-foreground mb-8">
-                    <span>Check-in: <span className="font-medium text-foreground">{formattedCheckIn}</span></span>
-                    <span className="hidden sm:inline">•</span>
-                    <span>Check-out: <span className="font-medium text-foreground">{formattedCheckOut}</span></span>
-                    <span className="hidden sm:inline">•</span>
-                    <span><span className="font-medium text-foreground">{nights}</span> night{nights !== 1 ? 's' : ''}</span>
+                <div className="space-y-6">
+                  <div>
+                    <h1 className="text-3xl font-playfair font-bold text-foreground mb-2">
+                      Available Accommodations
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                      {isValidDates && (
+                        <>
+                          <span>{formattedCheckIn} → {formattedCheckOut}</span>
+                          <span>•</span>
+                          <span>{nights} night{nights !== 1 ? 's' : ''}</span>
+                          <span>•</span>
+                          <span>{guests} guest{guests !== 1 ? 's' : ''}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   
-                  {/* Mobile Filter Toggle */}
-                  <div className="lg:hidden mb-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setShowMobileFilters(!showMobileFilters)}
-                      className="flex items-center gap-2"
-                    >
-                      <Filter className="h-4 w-4" />
-                      Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
-                    </Button>
-                  </div>
-                  
-                  <Link to="/">
-                    <Button variant="outline" className="hover:bg-primary hover:text-primary-foreground">
-                      ← Modify Search
-                    </Button>
-                  </Link>
-                </>
+                  {/* Loading or Results Summary */}
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-muted-foreground">Checking real-time availability...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <span className="text-lg font-semibold">
+                        {filteredRooms.length} room{filteredRooms.length !== 1 ? 's' : ''} available
+                      </span>
+                      {unavailableRooms.length > 0 && (
+                        <Badge variant="outline" className="text-orange-600">
+                          {unavailableRooms.length} unavailable for selected dates
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
         </header>
 
-        <div className="flex container mx-auto px-4 py-8 max-w-6xl mx-auto">
-          {/* Desktop Sidebar */}
-          <aside className="hidden lg:block w-80 pr-8">
-            <div className="bg-stone-light/20 border border-border rounded-lg p-6 sticky top-4">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-foreground">Filters</h2>
-                {activeFiltersCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    Clear all
-                  </Button>
-                )}
-              </div>
-
-              {/* Price Range Filter */}
-              <div className="mb-6">
-                <h3 className="font-medium text-foreground mb-3">Price Range</h3>
-                <RadioGroup value={priceRange} onValueChange={setPriceRange}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="any" id="price-any" />
-                    <Label htmlFor="price-any">Any price</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="low" id="price-low" />
-                    <Label htmlFor="price-low">€80 - €120 per night</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="medium" id="price-medium" />
-                    <Label htmlFor="price-medium">€120 - €160 per night</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="high" id="price-high" />
-                    <Label htmlFor="price-high">€160+ per night</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <Separator className="mb-6" />
-
-              {/* Room Type Filter */}
-              <div className="mb-6">
-                <h3 className="font-medium text-foreground mb-3">Room Type</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="private-room"
-                      checked={roomTypes.includes("private-room")}
-                      onCheckedChange={(checked) => handleRoomTypeChange("private-room", !!checked)}
-                    />
-                    <Label htmlFor="private-room">Private Room</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="full-apartment"
-                      checked={roomTypes.includes("full-apartment")}
-                      onCheckedChange={(checked) => handleRoomTypeChange("full-apartment", !!checked)}
-                    />
-                    <Label htmlFor="full-apartment">Full Apartment</Label>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="mb-6" />
-
-              {/* Special Features Filter */}
-              <div>
-                <h3 className="font-medium text-foreground mb-3">Special Features</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="private-garden"
-                      checked={specialFeatures.includes("private-garden")}
-                      onCheckedChange={(checked) => handleSpecialFeatureChange("private-garden", !!checked)}
-                    />
-                    <Label htmlFor="private-garden">Private Garden</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="panoramic-terrace"
-                      checked={specialFeatures.includes("panoramic-terrace")}
-                      onCheckedChange={(checked) => handleSpecialFeatureChange("panoramic-terrace", !!checked)}
-                    />
-                    <Label htmlFor="panoramic-terrace">Panoramic Terrace</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="modern-luxury"
-                      checked={specialFeatures.includes("modern-luxury")}
-                      onCheckedChange={(checked) => handleSpecialFeatureChange("modern-luxury", !!checked)}
-                    />
-                    <Label htmlFor="modern-luxury">Modern Luxury</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="historic-stone"
-                      checked={specialFeatures.includes("historic-stone")}
-                      onCheckedChange={(checked) => handleSpecialFeatureChange("historic-stone", !!checked)}
-                    />
-                    <Label htmlFor="historic-stone">Historic Stone</Label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          {/* Mobile Filters */}
-          {showMobileFilters && (
-            <div className="lg:hidden fixed inset-0 bg-black/50 z-50">
-              <div className="bg-background p-6 h-full overflow-y-auto animate-slide-in-right">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Filters Sidebar */}
+            <aside className="lg:col-span-1">
+              <div className="sticky top-8">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-foreground">Filters</h2>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setShowMobileFilters(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <h2 className="text-xl font-semibold">Filters</h2>
+                  {activeFiltersCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-sm">
+                      Clear ({activeFiltersCount})
+                    </Button>
+                  )}
                 </div>
 
-                {/* Same filter content as desktop but in mobile layout */}
                 <div className="space-y-6">
-                  {/* Price Range Filter */}
+                  {/* Price Range */}
                   <div>
-                    <h3 className="font-medium text-foreground mb-3">Price Range</h3>
+                    <h3 className="font-medium mb-3">Price Range</h3>
                     <RadioGroup value={priceRange} onValueChange={setPriceRange}>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="any" id="mobile-price-any" />
-                        <Label htmlFor="mobile-price-any">Any price</Label>
+                        <RadioGroupItem value="any" id="any" />
+                        <Label htmlFor="any">Any price</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="low" id="mobile-price-low" />
-                        <Label htmlFor="mobile-price-low">€80 - €120 per night</Label>
+                        <RadioGroupItem value="low" id="low" />
+                        <Label htmlFor="low">€80 - €120</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="medium" id="mobile-price-medium" />
-                        <Label htmlFor="mobile-price-medium">€120 - €160 per night</Label>
+                        <RadioGroupItem value="medium" id="medium" />
+                        <Label htmlFor="medium">€120 - €160</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="high" id="mobile-price-high" />
-                        <Label htmlFor="mobile-price-high">€160+ per night</Label>
+                        <RadioGroupItem value="high" id="high" />
+                        <Label htmlFor="high">€160+</Label>
                       </div>
                     </RadioGroup>
                   </div>
 
                   <Separator />
 
-                  {/* Room Type Filter */}
+                  {/* Room Type */}
                   <div>
-                    <h3 className="font-medium text-foreground mb-3">Room Type</h3>
-                    <div className="space-y-3">
+                    <h3 className="font-medium mb-3">Accommodation Type</h3>
+                    <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mobile-private-room"
+                        <Checkbox
+                          id="private-room"
                           checked={roomTypes.includes("private-room")}
                           onCheckedChange={(checked) => handleRoomTypeChange("private-room", !!checked)}
                         />
-                        <Label htmlFor="mobile-private-room">Private Room</Label>
+                        <Label htmlFor="private-room">Private Room</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mobile-full-apartment"
+                        <Checkbox
+                          id="full-apartment"
                           checked={roomTypes.includes("full-apartment")}
                           onCheckedChange={(checked) => handleRoomTypeChange("full-apartment", !!checked)}
                         />
-                        <Label htmlFor="mobile-full-apartment">Full Apartment</Label>
+                        <Label htmlFor="full-apartment">Full Apartment</Label>
                       </div>
                     </div>
                   </div>
 
                   <Separator />
 
-                  {/* Special Features Filter */}
+                  {/* Special Features */}
                   <div>
-                    <h3 className="font-medium text-foreground mb-3">Special Features</h3>
-                    <div className="space-y-3">
+                    <h3 className="font-medium mb-3">Special Features</h3>
+                    <div className="space-y-2">
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mobile-private-garden"
+                        <Checkbox
+                          id="private-garden"
                           checked={specialFeatures.includes("private-garden")}
                           onCheckedChange={(checked) => handleSpecialFeatureChange("private-garden", !!checked)}
                         />
-                        <Label htmlFor="mobile-private-garden">Private Garden</Label>
+                        <Label htmlFor="private-garden">Private Garden</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mobile-panoramic-terrace"
+                        <Checkbox
+                          id="panoramic-terrace"
                           checked={specialFeatures.includes("panoramic-terrace")}
                           onCheckedChange={(checked) => handleSpecialFeatureChange("panoramic-terrace", !!checked)}
                         />
-                        <Label htmlFor="mobile-panoramic-terrace">Panoramic Terrace</Label>
+                        <Label htmlFor="panoramic-terrace">Panoramic Terrace</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mobile-modern-luxury"
-                          checked={specialFeatures.includes("modern-luxury")}
-                          onCheckedChange={(checked) => handleSpecialFeatureChange("modern-luxury", !!checked)}
-                        />
-                        <Label htmlFor="mobile-modern-luxury">Modern Luxury</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mobile-historic-stone"
+                        <Checkbox
+                          id="historic-stone"
                           checked={specialFeatures.includes("historic-stone")}
                           onCheckedChange={(checked) => handleSpecialFeatureChange("historic-stone", !!checked)}
                         />
-                        <Label htmlFor="mobile-historic-stone">Historic Stone</Label>
+                        <Label htmlFor="historic-stone">Historic Stone Vault</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="modern-luxury"
+                          checked={specialFeatures.includes("modern-luxury")}
+                          onCheckedChange={(checked) => handleSpecialFeatureChange("modern-luxury", !!checked)}
+                        />
+                        <Label htmlFor="modern-luxury">Modern Luxury</Label>
                       </div>
                     </div>
                   </div>
-
-                  <div className="flex gap-3 pt-6">
-                    <Button onClick={clearFilters} variant="outline" className="flex-1">
-                      Clear All
-                    </Button>
-                    <Button 
-                      onClick={() => setShowMobileFilters(false)}
-                      className="flex-1"
-                    >
-                      Apply
-                    </Button>
-                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            </aside>
 
-          {/* Main Content */}
-          <main className="flex-1">
-            {errorMessage ? (
-              <div className="bg-card border border-border rounded-lg p-8 text-center">
-                <h2 className="text-2xl font-semibold text-card-foreground mb-4">
-                  No Results Found
-                </h2>
-                <p className="text-muted-foreground">
-                  {errorMessage}
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-semibold text-foreground mb-2">
-                    {availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} found
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Showing accommodations for {guests} guest{guests !== 1 ? 's' : ''}
-                  </p>
+            {/* Results */}
+            <main className="lg:col-span-3">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
+                      <div className="w-full aspect-video bg-gray-200" />
+                      <div className="p-6 space-y-4">
+                        <div className="h-6 bg-gray-200 rounded w-3/4" />
+                        <div className="h-4 bg-gray-200 rounded w-1/2" />
+                        <div className="h-10 bg-gray-200 rounded" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                {availableRooms.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-6 transition-all duration-300">
-                    {availableRooms.map((room) => {
-                      const totalPrice = room.basePrice * nights;
-                      
-                      return (
-                        <div 
-                          key={room.id}
-                          className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-warm transition-all duration-300 hover:-translate-y-0.5"
-                        >
-                          {/* Placeholder Image */}
-                          <div className="w-full aspect-video bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-500 text-sm">Room Image</span>
+              ) : filteredRooms.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300">
+                  {filteredRooms.map((room) => {
+                    const totalPrice = room.base_price * nights;
+                    
+                    return (
+                      <div 
+                        key={room.id}
+                        className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-warm transition-all duration-300 hover:-translate-y-0.5"
+                      >
+                        {/* Placeholder Image */}
+                        <div className="w-full aspect-video bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-sm">Room Image</span>
+                        </div>
+                        
+                        {/* Room Details */}
+                        <div className="p-6">
+                          <h3 className="font-playfair text-xl font-semibold text-card-foreground mb-2">
+                            {room.name}
+                          </h3>
+                          
+                          <p className="text-muted-foreground mb-4">
+                            Perfect for {room.capacity} guest{room.capacity !== 1 ? 's' : ''}
+                          </p>
+                          
+                          <div className="mb-4">
+                            <p className="text-lg font-semibold text-foreground">
+                              €{room.base_price}/night
+                            </p>
+                            {nights > 0 && (
+                              <p className="text-sm text-muted-foreground">
+                                €{totalPrice} total ({nights} night{nights !== 1 ? 's' : ''})
+                              </p>
+                            )}
                           </div>
                           
-                          {/* Room Details */}
-                          <div className="p-6">
-                            <h3 className="font-playfair text-xl font-semibold text-card-foreground mb-2">
-                              {room.name}
-                            </h3>
-                            
-                            <p className="text-muted-foreground mb-4">
-                              Perfect for {room.capacity} guest{room.capacity !== 1 ? 's' : ''}
-                            </p>
-                            
-                            <div className="mb-4">
-                              <p className="text-lg font-semibold text-foreground">
-                                €{room.basePrice}/night
-                              </p>
-                              {nights > 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                  €{totalPrice} total ({nights} night{nights !== 1 ? 's' : ''})
-                                </p>
-                              )}
-                            </div>
-                            
-                            <Link 
-                              to={`/rooms/${room.slug}?checkIn=${searchParams.get('checkIn') || ''}&checkOut=${searchParams.get('checkOut') || ''}&guests=${searchParams.get('guests') || ''}`}
+                          <Link 
+                            to={`/rooms/${room.slug}?checkIn=${searchParams.get('checkIn') || ''}&checkOut=${searchParams.get('checkOut') || ''}&guests=${searchParams.get('guests') || ''}`}
+                          >
+                            <Button 
+                              variant="terracotta" 
+                              className="w-full"
                             >
-                              <Button 
-                                variant="terracotta" 
-                                className="w-full"
-                              >
-                                Book Now
-                              </Button>
-                            </Link>
-                          </div>
+                              Book Now
+                            </Button>
+                          </Link>
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-card border border-border rounded-lg p-12 text-center">
+                  {unavailableRooms.length > 0 ? (
+                    <>
+                      <CalendarX className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+                      <h2 className="text-2xl font-semibold text-card-foreground mb-4">
+                        No rooms available for selected dates
+                      </h2>
+                      <p className="text-muted-foreground mb-6">
+                        {unavailableRooms.length} room{unavailableRooms.length !== 1 ? 's are' : ' is'} already booked for your selected dates. Try different dates or adjust your filters.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h2 className="text-2xl font-semibold text-card-foreground mb-4">
+                        No rooms match your criteria
+                      </h2>
+                      <p className="text-muted-foreground mb-6">
+                        Try adjusting your filters to see more results
+                      </p>
+                    </>
+                  )}
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                </div>
+              )}
+
+              {/* Show unavailable rooms for transparency */}
+              {unavailableRooms.length > 0 && filteredRooms.length > 0 && (
+                <div className="mt-8 pt-8 border-t border-border">
+                  <h3 className="text-lg font-semibold mb-4 text-muted-foreground">
+                    Unavailable for Selected Dates ({unavailableRooms.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-60">
+                    {unavailableRooms.map((room) => (
+                      <div 
+                        key={room.id}
+                        className="bg-card border border-border rounded-lg overflow-hidden"
+                      >
+                        <div className="w-full aspect-video bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-sm">Room Image</span>
+                        </div>
+                        <div className="p-6">
+                          <h3 className="font-playfair text-xl font-semibold text-card-foreground mb-2">
+                            {room.name}
+                          </h3>
+                          <p className="text-muted-foreground mb-4">
+                            Perfect for {room.capacity} guest{room.capacity !== 1 ? 's' : ''}
+                          </p>
+                          <div className="mb-4">
+                            <p className="text-lg font-semibold text-foreground">
+                              €{room.base_price}/night
+                            </p>
+                          </div>
+                          <Button disabled className="w-full" variant="outline">
+                            Already Booked
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <div className="bg-card border border-border rounded-lg p-12 text-center">
-                    <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h2 className="text-2xl font-semibold text-card-foreground mb-4">
-                      No rooms match your criteria
-                    </h2>
-                    <p className="text-muted-foreground mb-6">
-                      Try adjusting your filters to see more results
-                    </p>
-                    <Button variant="outline" onClick={clearFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </main>
+                </div>
+              )}
+            </main>
+          </div>
         </div>
       </div>
     </>

@@ -17,74 +17,60 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { useRoomAvailability, isDateAvailable } from '@/hooks/useAvailability';
 
 const SearchWidget = () => {
+  const navigate = useNavigate();
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [guests, setGuests] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Real availability data for next 3 months
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setMonth(endDate.getMonth() + 3);
   
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const GARDEN_ROOM_ID = "bb65fd59-a6f0-457e-95ea-d1670170dd89";
+  
+  const { data: availabilityData, isLoading: isLoadingAvailability } = useRoomAvailability(
+    GARDEN_ROOM_ID,
+    startDate,
+    endDate
+  );
 
   const handleSearch = async () => {
-    // Validation
-    if (!checkIn || !checkOut || !guests) {
-      toast({
-        title: "Missing Information",
-        description: "Please select check-in date, check-out date, and number of guests.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate dates
-    if (checkOut <= checkIn) {
-      toast({
-        title: "Invalid Dates",
-        description: "Check-out date must be after check-in date.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (checkIn < new Date()) {
-      toast({
-        title: "Invalid Date",
-        description: "Check-in date cannot be in the past.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    if (!checkIn || !checkOut || !guests) return;
+    
     setIsLoading(true);
     
-    try {
-      // Format dates to YYYY-MM-DD
-      const checkInFormatted = format(checkIn, 'yyyy-MM-dd');
-      const checkOutFormatted = format(checkOut, 'yyyy-MM-dd');
-      
-      // Navigate to search results with query parameters
-      const searchParams = new URLSearchParams({
-        checkIn: checkInFormatted,
-        checkOut: checkOutFormatted,
-        guests: guests
-      });
-      
-      navigate(`/search-results?${searchParams.toString()}`);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An error occurred while processing your search. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    // Create URL parameters for search results
+    const searchParams = new URLSearchParams({
+      checkIn: checkIn.toISOString().split('T')[0], // Format: YYYY-MM-DD
+      checkOut: checkOut.toISOString().split('T')[0],
+      guests: guests
+    });
+    
+    // Navigate to search results page with parameters
+    navigate(`/search-results?${searchParams.toString()}`);
+    
+    setIsLoading(false);
   };
 
   const isFormValid = checkIn && checkOut && guests;
+
+  // Real date disable logic
+  const isDateDisabled = (date: Date) => {
+    // Disable past dates
+    if (date < new Date()) return true;
+    
+    // Disable if we have availability data and date is not available
+    if (availabilityData && availabilityData.length > 0) {
+      return !isDateAvailable(availabilityData, date);
+    }
+    
+    return false;
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-elegant p-6 lg:p-8 w-full max-w-4xl mx-auto animate-scale-in">
@@ -113,7 +99,7 @@ const SearchWidget = () => {
                 mode="single"
                 selected={checkIn}
                 onSelect={setCheckIn}
-                disabled={(date) => date < new Date()}
+                disabled={isDateDisabled}
                 initialFocus
                 className="p-3 pointer-events-auto"
               />
@@ -144,7 +130,10 @@ const SearchWidget = () => {
                 mode="single"
                 selected={checkOut}
                 onSelect={setCheckOut}
-                disabled={(date) => date < new Date() || (checkIn && date <= checkIn)}
+                disabled={(date) => 
+                  isDateDisabled(date) || 
+                  (checkIn && date <= checkIn)
+                }
                 initialFocus
                 className="p-3 pointer-events-auto"
               />
@@ -180,7 +169,7 @@ const SearchWidget = () => {
           </label>
           <Button
             onClick={handleSearch}
-            disabled={!isFormValid || isLoading}
+            disabled={!isFormValid || isLoading || isLoadingAvailability}
             variant="terracotta"
             size="lg"
             className="w-full lg:w-auto lg:px-8 h-12 font-semibold text-base lg:mt-7 disabled:opacity-60"
@@ -189,6 +178,11 @@ const SearchWidget = () => {
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
                 Searching...
+              </div>
+            ) : isLoadingAvailability ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Loading availability...
               </div>
             ) : (
               <div className="flex items-center">
@@ -200,11 +194,19 @@ const SearchWidget = () => {
         </div>
       </div>
 
-      {/* Help text */}
+      {/* Status indicator */}
       <div className="mt-4 text-center">
         <p className="text-sm text-muted-foreground">
           🏛️ Only 30 meters from Santa Chiara Basilica • ✨ Authentic Umbrian experience awaits
         </p>
+        {isLoadingAvailability && (
+          <p className="text-xs text-sage mt-1">📅 Loading real availability...</p>
+        )}
+        {availabilityData && (
+          <p className="text-xs text-sage mt-1">
+            📅 Real-time availability: {availabilityData.length} days loaded
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+// src/components/booking/BookingForm.tsx
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Users, ArrowLeft, ArrowRight, CreditCard, Shield } from 'lucide-react';
+import { Users, ArrowLeft, ArrowRight, CreditCard, Shield, Loader2, Check } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface BookingFormData {
@@ -45,7 +47,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
   className
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<BookingFormData>({
     firstName: '',
     lastName: '',
@@ -96,15 +98,16 @@ const BookingForm: React.FC<BookingFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(3)) return;
+    if (!validateStep(3) || submitting) return;
     
-    setIsSubmitting(true);
-    
-    // Simulate booking process
-    setTimeout(() => {
-      onComplete(formData);
-      setIsSubmitting(false);
-    }, 2000);
+    setSubmitting(true);
+    try {
+      await onComplete(formData);
+    } catch (error) {
+      console.error('Booking submission failed:', error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateFormData = (field: keyof BookingFormData, value: string | boolean) => {
@@ -123,7 +126,11 @@ const BookingForm: React.FC<BookingFormProps> = ({
         <div className="space-y-4">
           <div>
             <Label htmlFor="guests">Number of Guests</Label>
-            <Select value={formData.guests} onValueChange={(value) => updateFormData('guests', value)}>
+            <Select 
+              value={formData.guests} 
+              onValueChange={(value) => updateFormData('guests', value)}
+              disabled={submitting}
+            >
               <SelectTrigger className={cn("mt-1", errors.guests && "border-destructive")}>
                 <div className="flex items-center">
                   <Users size={18} className="mr-2 text-sage" />
@@ -174,6 +181,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
               onChange={(e) => updateFormData('firstName', e.target.value)}
               className={cn("mt-1", errors.firstName && "border-destructive")}
               placeholder="Enter your first name"
+              disabled={submitting}
             />
             {errors.firstName && <p className="text-destructive text-sm mt-1">{errors.firstName}</p>}
           </div>
@@ -186,6 +194,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
               onChange={(e) => updateFormData('lastName', e.target.value)}
               className={cn("mt-1", errors.lastName && "border-destructive")}
               placeholder="Enter your last name"
+              disabled={submitting}
             />
             {errors.lastName && <p className="text-destructive text-sm mt-1">{errors.lastName}</p>}
           </div>
@@ -199,34 +208,42 @@ const BookingForm: React.FC<BookingFormProps> = ({
               onChange={(e) => updateFormData('email', e.target.value)}
               className={cn("mt-1", errors.email && "border-destructive")}
               placeholder="your@email.com"
+              disabled={submitting}
             />
             {errors.email && <p className="text-destructive text-sm mt-1">{errors.email}</p>}
           </div>
 
           <div>
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="country">Country *</Label>
+            <Select 
+              value={formData.country} 
+              onValueChange={(value) => updateFormData('country', value)}
+              disabled={submitting}
+            >
+              <SelectTrigger className={cn("mt-1", errors.country && "border-destructive")}>
+                <SelectValue placeholder="Select your country" />
+              </SelectTrigger>
+              <SelectContent>
+                {countries.map((country) => (
+                  <SelectItem key={country} value={country}>
+                    {country}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.country && <p className="text-destructive text-sm mt-1">{errors.country}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="phone">Phone Number (Optional)</Label>
             <Input
               id="phone"
               value={formData.phone}
               onChange={(e) => updateFormData('phone', e.target.value)}
               className="mt-1"
               placeholder="+39 123 456 7890"
+              disabled={submitting}
             />
-          </div>
-
-          <div className="md:col-span-2">
-            <Label htmlFor="country">Country *</Label>
-            <Select value={formData.country} onValueChange={(value) => updateFormData('country', value)}>
-              <SelectTrigger className={cn("mt-1", errors.country && "border-destructive")}>
-                <SelectValue placeholder="Select your country" />
-              </SelectTrigger>
-              <SelectContent>
-                {countries.map(country => (
-                  <SelectItem key={country} value={country}>{country}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.country && <p className="text-destructive text-sm mt-1">{errors.country}</p>}
           </div>
 
           <div className="md:col-span-2">
@@ -238,6 +255,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
               className="mt-1"
               placeholder="Any special requests or dietary requirements..."
               rows={3}
+              disabled={submitting}
             />
           </div>
         </div>
@@ -302,15 +320,15 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 checked={formData.agreeToTerms}
                 onCheckedChange={(checked) => updateFormData('agreeToTerms', !!checked)}
                 className={cn(errors.agreeToTerms && "border-destructive")}
+                disabled={submitting}
               />
               <div className="grid gap-1.5 leading-none">
-                <Label
-                  htmlFor="terms"
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  I agree to the booking terms and conditions, cancellation policy, 
-                  and privacy policy. I understand this is a demo booking.
-                </Label>
+                <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  I agree to the terms and conditions
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  By checking this box, you agree to our booking terms, privacy policy, and cancellation policy.
+                </p>
               </div>
             </div>
             {errors.agreeToTerms && <p className="text-destructive text-sm">{errors.agreeToTerms}</p>}
@@ -321,37 +339,32 @@ const BookingForm: React.FC<BookingFormProps> = ({
   );
 
   return (
-    <div className={className}>
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-center space-x-4">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center">
-              <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
-                currentStep >= step 
-                  ? "bg-sage text-white" 
-                  : "bg-muted text-muted-foreground"
-              )}>
-                {step}
-              </div>
-              {step < 3 && (
-                <div className={cn(
-                  "w-16 h-0.5 mx-2 transition-colors",
-                  currentStep > step ? "bg-sage" : "bg-muted"
-                )} />
-              )}
+    <div className={cn("space-y-8", className)}>
+      {/* Step Progress */}
+      <div className="flex items-center justify-center space-x-4">
+        {[1, 2, 3].map((step) => (
+          <div key={step} className="flex items-center">
+            <div className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
+              currentStep === step 
+                ? "bg-sage text-white" 
+                : currentStep > step 
+                ? "bg-sage/20 text-sage"
+                : "bg-gray-200 text-gray-500"
+            )}>
+              {currentStep > step ? <Check size={16} /> : step}
             </div>
-          ))}
-        </div>
-        <div className="flex justify-center mt-2">
-          <span className="text-sm text-muted-foreground">
-            Step {currentStep} of 3
-          </span>
-        </div>
+            {step < 3 && (
+              <div className={cn(
+                "w-12 h-0.5 mx-2",
+                currentStep > step ? "bg-sage" : "bg-gray-200"
+              )} />
+            )}
+          </div>
+        ))}
       </div>
 
-      {/* Form Content */}
+      {/* Step Content */}
       <div className="min-h-[400px]">
         {currentStep === 1 && renderStep1()}
         {currentStep === 2 && renderStep2()}
@@ -359,43 +372,39 @@ const BookingForm: React.FC<BookingFormProps> = ({
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between items-center pt-6 border-t">
+      <div className="flex justify-between pt-6 border-t">
         <Button
           variant="outline"
           onClick={handlePrevious}
-          disabled={currentStep === 1}
-          className="flex items-center gap-2"
+          disabled={currentStep === 1 || submitting}
+          className="flex items-center"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={16} className="mr-2" />
           Previous
         </Button>
 
         {currentStep < 3 ? (
           <Button
             onClick={handleNext}
-            className="flex items-center gap-2"
-            variant="terracotta"
+            disabled={submitting}
+            className="flex items-center bg-sage hover:bg-sage/90"
           >
             Next
-            <ArrowRight size={16} />
+            <ArrowRight size={16} className="ml-2" />
           </Button>
         ) : (
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="flex items-center gap-2"
-            variant="terracotta"
+            disabled={submitting}
+            className="flex items-center bg-terracotta hover:bg-terracotta/90 min-w-[120px]"
           >
-            {isSubmitting ? (
+            {submitting ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                Processing...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Booking...
               </>
             ) : (
-              <>
-                Complete Booking
-                <CreditCard size={16} />
-              </>
+              'Confirm Booking'
             )}
           </Button>
         )}

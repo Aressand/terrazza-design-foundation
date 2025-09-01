@@ -1,3 +1,5 @@
+// src/components/booking/BookingCalendar.tsx - Updated with Real Data
+
 import React, { useState } from 'react';
 import { format, addDays, differenceInDays, isAfter, isBefore, isWithinInterval } from "date-fns";
 import { CalendarIcon } from 'lucide-react';
@@ -15,25 +17,17 @@ interface BookingCalendarProps {
   checkOut: Date | undefined;
   onCheckInSelect: (date: Date | undefined) => void;
   onCheckOutSelect: (date: Date | undefined) => void;
+  unavailableDates?: Date[];
   minStay?: number;
   className?: string;
 }
-
-// Mock availability data - in real app this would come from API
-const mockUnavailableDates = [
-  new Date(2024, 2, 15), // March 15
-  new Date(2024, 2, 16), // March 16
-  new Date(2024, 2, 20), // March 20
-  new Date(2024, 3, 5),  // April 5
-  new Date(2024, 3, 6),  // April 6
-  new Date(2024, 3, 7),  // April 7
-];
 
 const BookingCalendar: React.FC<BookingCalendarProps> = ({
   checkIn,
   checkOut,
   onCheckInSelect,
   onCheckOutSelect,
+  unavailableDates = [],
   minStay = 1,
   className
 }) => {
@@ -41,7 +35,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
 
   const isDateUnavailable = (date: Date) => {
-    return mockUnavailableDates.some(unavailableDate => 
+    return unavailableDates.some(unavailableDate => 
       date.toDateString() === unavailableDate.toDateString()
     );
   };
@@ -100,17 +94,18 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                 initialFocus
                 className="p-3 pointer-events-auto"
                 modifiers={{
-                  unavailable: mockUnavailableDates,
+                  unavailable: unavailableDates,
                   inRange: isDateInRange
                 }}
                 modifiersStyles={{
                   unavailable: { 
                     color: 'hsl(var(--destructive))',
                     textDecoration: 'line-through',
-                    backgroundColor: 'hsl(var(--destructive) / 0.1)'
+                    backgroundColor: 'hsl(var(--destructive) / 0.1)',
+                    opacity: 0.5
                   },
                   inRange: {
-                    backgroundColor: 'hsl(var(--sage-light) / 0.3)'
+                    backgroundColor: 'hsl(var(--sage) / 0.2)'
                   }
                 }}
               />
@@ -151,17 +146,18 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                 initialFocus
                 className="p-3 pointer-events-auto"
                 modifiers={{
-                  unavailable: mockUnavailableDates,
+                  unavailable: unavailableDates,
                   inRange: isDateInRange
                 }}
                 modifiersStyles={{
                   unavailable: { 
                     color: 'hsl(var(--destructive))',
                     textDecoration: 'line-through',
-                    backgroundColor: 'hsl(var(--destructive) / 0.1)'
+                    backgroundColor: 'hsl(var(--destructive) / 0.1)',
+                    opacity: 0.5
                   },
                   inRange: {
-                    backgroundColor: 'hsl(var(--sage-light) / 0.3)'
+                    backgroundColor: 'hsl(var(--sage) / 0.2)'
                   }
                 }}
               />
@@ -191,13 +187,15 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
           <span>Available</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-destructive rounded-full"></div>
+          <div className="w-3 h-3 bg-destructive rounded-full opacity-50"></div>
           <span>Unavailable</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-sage-light/30 rounded-full"></div>
-          <span>Selected period</span>
-        </div>
+        {checkIn && checkOut && (
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-sage/20 rounded-full"></div>
+            <span>Selected period</span>
+          </div>
+        )}
       </div>
     </div>
   );
