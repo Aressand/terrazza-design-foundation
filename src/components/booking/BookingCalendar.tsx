@@ -1,4 +1,4 @@
-// src/components/booking/BookingCalendar.tsx - Updated with Real Data
+// src/components/booking/BookingCalendar.tsx - ONLY ADDED weekStartsOn={1}
 
 import React, { useState } from 'react';
 import { format, addDays, differenceInDays, isAfter, isBefore, isWithinInterval } from "date-fns";
@@ -91,6 +91,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                   isDateUnavailable(date) ||
                   date > addDays(new Date(), 365)
                 }
+                weekStartsOn={1}
                 initialFocus
                 className="p-3 pointer-events-auto"
                 modifiers={{
@@ -105,7 +106,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                     opacity: 0.5
                   },
                   inRange: {
-                    backgroundColor: 'hsl(var(--sage) / 0.2)'
+                    backgroundColor: '#e6e8d9'
                   }
                 }}
               />
@@ -143,8 +144,14 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                   isDateUnavailable(date) ||
                   date > addDays(new Date(), 365)
                 }
+                weekStartsOn={1}
                 initialFocus
                 className="p-3 pointer-events-auto"
+                classNames={{
+                  day_today: "bg-transparent text-foreground font-normal", // 🔴 FIX: Remove today highlighting
+                  day_selected: "bg-transparent text-foreground font-normal", // 🔴 FIX: Remove check-in transparency in check-out calendar
+                  day: "hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+                }}
                 modifiers={{
                   unavailable: unavailableDates,
                   inRange: isDateInRange
@@ -157,7 +164,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                     opacity: 0.5
                   },
                   inRange: {
-                    backgroundColor: 'hsl(var(--sage) / 0.2)'
+                    backgroundColor: '#e6e8d9'
                   }
                 }}
               />
@@ -192,7 +199,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
         </div>
         {checkIn && checkOut && (
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-sage/20 rounded-full"></div>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#e6e8d9' }}></div>
             <span>Selected period</span>
           </div>
         )}

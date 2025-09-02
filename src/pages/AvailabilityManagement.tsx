@@ -1,10 +1,11 @@
-// src/pages/AvailabilityManagement.tsx
+// src/pages/AvailabilityManagement.tsx - FIXED VERSION
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Link } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AvailabilityCalendar from '@/components/admin/AvailabilityCalendar';
 import BulkAvailabilityModal from '@/components/admin/BulkAvailabilityModal';
@@ -14,7 +15,8 @@ import {
   AlertCircle, 
   Info,
   CalendarX,
-  CalendarCheck
+  CalendarCheck,
+  ArrowLeft
 } from 'lucide-react';
 import { ROOM_NAMES, type RoomType } from '@/utils/roomMapping';
 import { useAvailabilityManagement } from '@/hooks/useAvailabilityManagement';
@@ -55,15 +57,25 @@ const AvailabilityManagement = () => {
 
   // Get availability data for active room to show summary
   const { availabilityData: activeRoomData } = useAvailabilityManagement(activeTab);
+  
+  // 🔴 CRITICAL FIX: Get the bulk function for the correct room
+  const { bulkToggleAvailability, loading: bulkLoading } = useAvailabilityManagement(bulkModalRoom);
 
   const openBulkModal = (roomType: RoomType) => {
     setBulkModalRoom(roomType);
     setBulkModalOpen(true);
   };
 
+  // 🔴 CRITICAL FIX: Actually call the bulk function instead of page reload
   const handleBulkUpdate = async (startDate: Date, endDate: Date, available: boolean) => {
-    // The actual update will be handled by the hook inside the modal
-    window.location.reload(); // Simple refresh for now - could be optimized
+    try {
+      console.log(`🔄 Bulk update: ${bulkModalRoom} from ${startDate.toISOString()} to ${endDate.toISOString()} - ${available ? 'AVAILABLE' : 'BLOCKED'}`);
+      await bulkToggleAvailability(startDate, endDate, available);
+      console.log('✅ Bulk update completed successfully');
+    } catch (error) {
+      console.error('❌ Bulk update failed:', error);
+      throw error; // Re-throw so the modal can show the error
+    }
   };
 
   const activeRoomTabData = roomTabs.find(room => room.id === activeTab);
@@ -74,6 +86,16 @@ const AvailabilityManagement = () => {
   return (
     <AdminLayout title="Availability Management">
       <div className="space-y-6">
+        {/* 🔴 FIX 2: Back to Dashboard Button */}
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin" className="flex items-center">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Link>
+          </Button>
+        </div>
+
         {/* Header */}
         <Card>
           <CardHeader>
@@ -129,6 +151,7 @@ const AvailabilityManagement = () => {
                 size="sm"
                 onClick={() => openBulkModal(activeTab)}
                 className="flex items-center"
+                disabled={bulkLoading}
               >
                 <Settings className="w-4 h-4 mr-2" />
                 Bulk Update
@@ -160,7 +183,7 @@ const AvailabilityManagement = () => {
           open={bulkModalOpen}
           onClose={() => setBulkModalOpen(false)}
           onConfirm={handleBulkUpdate}
-          roomName={activeRoomTabData?.name || ''}
+          roomName={roomTabs.find(room => room.id === bulkModalRoom)?.name || ''}
         />
 
         {/* Additional Info */}

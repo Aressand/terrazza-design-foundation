@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, eachDayOfInterval } from 'date-fns';
 import type { RoomType } from '@/utils/roomMapping';
 
 interface AvailableRoom {
@@ -71,6 +71,8 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
       lastFetchedParams.current = currentParamsKey;
 
       try {
+        console.log(`🔍 Search availability: ${searchParams.checkInStr} to ${searchParams.checkOutStr} for ${searchParams.guests} guests`);
+
         // Get all active rooms that fit capacity
         const { data: allRooms, error: roomsError } = await supabase
           .from('rooms')
@@ -83,30 +85,45 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
         }
 
         if (!allRooms || allRooms.length === 0) {
+          console.log('📋 No rooms found matching capacity criteria');
           setRooms([]);
           setLoading(false);
           return;
         }
 
-        // Process rooms with availability checking
+        console.log(`🏨 Found ${allRooms.length} rooms matching capacity`);
+
+        // Get all dates we need to check (excluding checkout day)
+        const dateRange = eachDayOfInterval({ start: checkIn!, end: checkOut! })
+          .slice(0, -1) // Remove checkout day
+          .map(date => format(date, 'yyyy-MM-dd'));
+
+        console.log(`📅 Checking ${dateRange.length} dates for availability`);
+
+        // Process rooms with comprehensive availability checking
         const roomsWithAvailability: AvailableRoom[] = [];
 
         for (const room of allRooms) {
           const roomType = getRoomTypeFromSlug(room.slug);
-          if (!roomType) continue;
+          if (!roomType) {
+            console.log(`⚠️ Skipping room ${room.name} - unknown room type for slug: ${room.slug}`);
+            continue;
+          }
 
           try {
-            // Check for conflicting bookings
-            const { data: conflicts, error: conflictsError } = await supabase
+            // 🔴 CRITICAL FIX: Check BOTH bookings AND admin blocks
+
+            // 1️⃣ Check for conflicting bookings
+            const { data: bookingConflicts, error: bookingsError } = await supabase
               .from('bookings')
-              .select('id')
+              .select('id, check_in, check_out')
               .eq('room_id', room.id)
               .eq('status', 'confirmed')
               .lt('check_in', searchParams.checkOutStr)
               .gt('check_out', searchParams.checkInStr);
 
-            if (conflictsError) {
-              // On error, assume unavailable for safety
+            if (bookingsError) {
+              console.error(`❌ Error checking bookings for room ${room.name}:`, bookingsError);
               roomsWithAvailability.push({
                 id: room.id,
                 name: room.name,
@@ -114,12 +131,52 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
                 capacity: room.capacity,
                 slug: room.slug,
                 roomType,
-                isAvailable: false
+                isAvailable: false // Assume unavailable on error for safety
               });
               continue;
             }
 
-            const isAvailable = !conflicts || conflicts.length === 0;
+            // 2️⃣ Check for admin availability blocks 
+            const { data: availabilityBlocks, error: blocksError } = await supabase
+              .from('room_availability')
+              .select('date, is_available')
+              .eq('room_id', room.id)
+              .in('date', dateRange);
+
+            if (blocksError) {
+              console.error(`❌ Error checking availability blocks for room ${room.name}:`, blocksError);
+              roomsWithAvailability.push({
+                id: room.id,
+                name: room.name,
+                base_price: room.base_price,
+                capacity: room.capacity,
+                slug: room.slug,
+                roomType,
+                isAvailable: false // Assume unavailable on error for safety
+              });
+              continue;
+            }
+
+            // 3️⃣ Determine final availability
+            let isAvailable = true;
+            let unavailableReason = '';
+
+            // Check booking conflicts
+            if (bookingConflicts && bookingConflicts.length > 0) {
+              isAvailable = false;
+              unavailableReason = `Booking conflict (${bookingConflicts.length} booking${bookingConflicts.length > 1 ? 's' : ''})`;
+            }
+
+            // Check admin blocks (only if no booking conflicts yet)
+            if (isAvailable && availabilityBlocks && availabilityBlocks.length > 0) {
+              const blockedDates = availabilityBlocks.filter(block => !block.is_available);
+              if (blockedDates.length > 0) {
+                isAvailable = false;
+                unavailableReason = `Admin blocked (${blockedDates.length} date${blockedDates.length > 1 ? 's' : ''})`;
+              }
+            }
+
+            console.log(`${isAvailable ? '✅' : '❌'} ${room.name}: ${isAvailable ? 'AVAILABLE' : unavailableReason}`);
 
             roomsWithAvailability.push({
               id: room.id,
@@ -132,6 +189,7 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
             });
 
           } catch (error) {
+            console.error(`💥 Exception checking room ${room.name}:`, error);
             // On exception, assume unavailable for safety
             roomsWithAvailability.push({
               id: room.id,
@@ -145,9 +203,13 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
           }
         }
 
+        const availableCount = roomsWithAvailability.filter(r => r.isAvailable).length;
+        console.log(`🏁 Search complete: ${availableCount}/${roomsWithAvailability.length} rooms available`);
+
         setRooms(roomsWithAvailability);
 
       } catch (err) {
+        console.error('💥 Search availability error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load rooms');
         setRooms([]);
       } finally {
