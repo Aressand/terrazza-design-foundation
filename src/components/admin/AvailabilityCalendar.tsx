@@ -205,6 +205,7 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
                 modifiersStyles={modifiersStyles}
                 onDayClick={handleDateClick}
                 disabled={(date) => date < new Date()}
+                weekStartsOn={1}
                 className="w-full"
                 classNames={{
                   day: cn(

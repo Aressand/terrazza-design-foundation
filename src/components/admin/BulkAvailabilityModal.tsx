@@ -170,6 +170,7 @@ const BulkAvailabilityModal: React.FC<BulkAvailabilityModalProps> = ({
                     selected={startDate}
                     onSelect={setStartDate}
                     disabled={(date) => date < new Date()}
+                    weekStartsOn={1}
                     initialFocus
                   />
                 </PopoverContent>
@@ -201,6 +202,7 @@ const BulkAvailabilityModal: React.FC<BulkAvailabilityModalProps> = ({
                     disabled={(date) => 
                       date < new Date() || (startDate && date < startDate)
                     }
+                    weekStartsOn={1}
                     initialFocus
                   />
                 </PopoverContent>

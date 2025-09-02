@@ -1,3 +1,5 @@
+// src/components/SearchWidget.tsx - FIXED Calendar auto-close issue
+
 import React, { useState } from 'react';
 import { format } from "date-fns";
 import { CalendarIcon, Users, Search } from 'lucide-react';
@@ -17,7 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useRoomAvailability, isDateAvailable } from '@/hooks/useAvailability';
+
+// 🔴 FIX: Format date safely without timezone issues  
+const formatDateSafely = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const SearchWidget = () => {
   const navigate = useNavigate();
@@ -25,63 +34,44 @@ const SearchWidget = () => {
   const [checkOut, setCheckOut] = useState<Date>();
   const [guests, setGuests] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Real availability data for next 3 months
-  const startDate = new Date();
-  const endDate = new Date();
-  endDate.setMonth(endDate.getMonth() + 3);
   
-  const GARDEN_ROOM_ID = "bb65fd59-a6f0-457e-95ea-d1670170dd89";
-  
-  const { data: availabilityData, isLoading: isLoadingAvailability } = useRoomAvailability(
-    GARDEN_ROOM_ID,
-    startDate,
-    endDate
-  );
+  // States for popover open/close control
+  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
+  const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
 
   const handleSearch = async () => {
     if (!checkIn || !checkOut || !guests) return;
     
     setIsLoading(true);
     
-    // Create URL parameters for search results
+    // 🔴 FIX: Create URL parameters using safe date formatting (no timezone issues)
     const searchParams = new URLSearchParams({
-      checkIn: checkIn.toISOString().split('T')[0], // Format: YYYY-MM-DD
-      checkOut: checkOut.toISOString().split('T')[0],
+      checkIn: formatDateSafely(checkIn),
+      checkOut: formatDateSafely(checkOut),
       guests: guests
     });
     
-    // Navigate to search results page with parameters
     navigate(`/search-results?${searchParams.toString()}`);
-    
     setIsLoading(false);
   };
 
   const isFormValid = checkIn && checkOut && guests;
 
-  // Real date disable logic
+  // 🔴 FIX: Only disable past dates (no room-specific restrictions)
   const isDateDisabled = (date: Date) => {
-    // Disable past dates
-    if (date < new Date()) return true;
-    
-    // Disable if we have availability data and date is not available
-    if (availabilityData && availabilityData.length > 0) {
-      return !isDateAvailable(availabilityData, date);
-    }
-    
-    return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-elegant p-6 lg:p-8 w-full max-w-4xl mx-auto animate-scale-in">
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+    <div className="bg-white p-6 rounded-lg shadow-lg border border-stone-light max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
-        {/* Check-in Date */}
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Check-in
-          </label>
-          <Popover>
+        {/* Check-in Date - EXACT same structure as BookingCalendar */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-stone-dark">Check-in</label>
+          <Popover open={isCheckInOpen} onOpenChange={setIsCheckInOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -90,29 +80,30 @@ const SearchWidget = () => {
                   !checkIn && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon size={18} className="mr-3" />
-                {checkIn ? format(checkIn, "PPP") : "Select date"}
+                <CalendarIcon size={18} className="mr-3 text-sage" />
+                {checkIn ? format(checkIn, "MMM dd, yyyy") : "Select date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-50" align="start">
+            <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
                 selected={checkIn}
-                onSelect={setCheckIn}
+                onSelect={(date) => {
+                  setCheckIn(date);
+                  setIsCheckInOpen(false);
+                }}
                 disabled={isDateDisabled}
+                weekStartsOn={1}
                 initialFocus
-                className="p-3 pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
         </div>
 
-        {/* Check-out Date */}
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Check-out
-          </label>
-          <Popover>
+        {/* Check-out Date - EXACT same structure as BookingCalendar */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-stone-dark">Check-out</label>
+          <Popover open={isCheckOutOpen} onOpenChange={setIsCheckOutOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -121,39 +112,40 @@ const SearchWidget = () => {
                   !checkOut && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon size={18} className="mr-3" />
-                {checkOut ? format(checkOut, "PPP") : "Select date"}
+                <CalendarIcon size={18} className="mr-3 text-sage" />
+                {checkOut ? format(checkOut, "MMM dd, yyyy") : "Select date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-50" align="start">
+            <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
                 selected={checkOut}
-                onSelect={setCheckOut}
+                onSelect={(date) => {
+                  setCheckOut(date);
+                  setIsCheckOutOpen(false);
+                }}
                 disabled={(date) => 
                   isDateDisabled(date) || 
                   (checkIn && date <= checkIn)
                 }
+                weekStartsOn={1}
                 initialFocus
-                className="p-3 pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
         </div>
 
-        {/* Guests Selection */}
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-foreground mb-2">
-            Guests
-          </label>
+        {/* Guests */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-stone-dark">Guests</label>
           <Select value={guests} onValueChange={setGuests}>
-            <SelectTrigger className="h-12 border-2 hover:border-sage focus:border-sage transition-colors">
+            <SelectTrigger className="h-12">
               <div className="flex items-center">
-                <Users size={18} className="mr-3" />
+                <Users className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Select guests" />
               </div>
             </SelectTrigger>
-            <SelectContent className="z-50">
+            <SelectContent>
               <SelectItem value="1">1 Guest</SelectItem>
               <SelectItem value="2">2 Guests</SelectItem>
               <SelectItem value="3">3 Guests</SelectItem>
@@ -163,51 +155,32 @@ const SearchWidget = () => {
         </div>
 
         {/* Search Button */}
-        <div className="flex-1 lg:flex-initial">
-          <label className="block text-sm font-medium text-transparent mb-2 lg:hidden">
-            Search
-          </label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-transparent">Search</label>
           <Button
             onClick={handleSearch}
-            disabled={!isFormValid || isLoading || isLoadingAvailability}
-            variant="terracotta"
-            size="lg"
-            className="w-full lg:w-auto lg:px-8 h-12 font-semibold text-base lg:mt-7 disabled:opacity-60"
+            disabled={!isFormValid || isLoading}
+            className="w-full h-12 bg-terracotta hover:bg-terracotta/90"
           >
             {isLoading ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 Searching...
-              </div>
-            ) : isLoadingAvailability ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                Loading availability...
-              </div>
+              </>
             ) : (
-              <div className="flex items-center">
-                <Search size={18} className="mr-2" />
-                Find Perfect Room
-              </div>
+              <>
+                <Search className="mr-2 h-4 w-4" />
+                Search
+              </>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Status indicator */}
-      <div className="mt-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          🏛️ Only 30 meters from Santa Chiara Basilica • ✨ Authentic Umbrian experience awaits
-        </p>
-        {isLoadingAvailability && (
-          <p className="text-xs text-sage mt-1">📅 Loading real availability...</p>
-        )}
-        {availabilityData && (
-          <p className="text-xs text-sage mt-1">
-            📅 Real-time availability: {availabilityData.length} days loaded
-          </p>
-        )}
-      </div>
+      {/* Help text */}
+      <p className="text-xs text-stone-medium mt-4 text-center">
+        Select your dates and number of guests to find available rooms
+      </p>
     </div>
   );
 };
