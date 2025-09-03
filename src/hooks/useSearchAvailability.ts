@@ -1,18 +1,27 @@
-// src/hooks/useSearchAvailability.ts
+// src/hooks/useSearchAvailability.ts - COMPLETE implementation with dynamic pricing
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, eachDayOfInterval } from 'date-fns';
-import type { RoomType } from '@/utils/roomMapping';
+import { ROOM_MAPPING } from '@/utils/roomMapping';
 
-interface AvailableRoom {
+interface RoomWithAvailabilityAndPricing {
   id: string;
   name: string;
   base_price: number;
   capacity: number;
   slug: string;
-  roomType: RoomType;
+  roomType: string;
   isAvailable: boolean;
+  // Dynamic pricing fields
+  dynamicPrice?: number;
+  pricePerNight?: number;
+  hasOverrides?: boolean;
+  priceBreakdown?: Array<{
+    date: string;
+    price: number;
+    isOverride: boolean;
+  }>;
 }
 
 interface UseSearchAvailabilityProps {
@@ -21,18 +30,32 @@ interface UseSearchAvailabilityProps {
   guests: number;
 }
 
-const getRoomTypeFromSlug = (slug: string): RoomType | null => {
-  switch (slug) {
-    case 'garden-room': return 'garden';
-    case 'stone-vault-apartment': return 'stone';
-    case 'terrace-apartment': return 'terrace';
-    case 'modern-apartment': return 'modern';
-    default: return null;
+// Helper function to determine if date is high season
+const isHighSeason = (date: Date): boolean => {
+  const month = date.getMonth() + 1;
+  return month >= 6 && month <= 9; // June-September
+};
+
+// Helper function to get room slug from id
+const getRoomSlugById = (roomId: string): string => {
+  const roomTypeEntry = Object.entries(ROOM_MAPPING).find(([, id]) => id === roomId);
+  
+  if (roomTypeEntry) {
+    const roomType = roomTypeEntry[0];
+    const slugMap: { [key: string]: string } = {
+      garden: 'garden-room',
+      terrace: 'terrace-apartment',
+      modern: 'modern-apartment',
+      stone: 'stone-vault-apartment'
+    };
+    return slugMap[roomType] || 'unknown-room';
   }
+  
+  return 'unknown-room';
 };
 
 export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAvailabilityProps) => {
-  const [rooms, setRooms] = useState<AvailableRoom[]>([]);
+  const [rooms, setRooms] = useState<RoomWithAvailabilityAndPricing[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -71,7 +94,7 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
       lastFetchedParams.current = currentParamsKey;
 
       try {
-        console.log(`🔍 Search availability: ${searchParams.checkInStr} to ${searchParams.checkOutStr} for ${searchParams.guests} guests`);
+        console.log(`🔍 Search availability with dynamic pricing - Check-in: ${searchParams.checkInStr}, Check-out: ${searchParams.checkOutStr}, Guests: ${searchParams.guests}`);
 
         // Get all active rooms that fit capacity
         const { data: allRooms, error: roomsError } = await supabase
@@ -94,81 +117,58 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
         console.log(`🏨 Found ${allRooms.length} rooms matching capacity`);
 
         // Get all dates we need to check (excluding checkout day)
-        const dateRange = eachDayOfInterval({ start: checkIn!, end: checkOut! })
-          .slice(0, -1) // Remove checkout day
-          .map(date => format(date, 'yyyy-MM-dd'));
+        const dateRange = eachDayOfInterval({ start: checkIn!, end: checkOut! });
+        const stayDates = dateRange.slice(0, -1); // Remove checkout date
+        const dateStrings = dateRange.map(date => format(date, 'yyyy-MM-dd'));
 
-        console.log(`📅 Checking ${dateRange.length} dates for availability`);
+        const roomsWithAvailabilityAndPricing: RoomWithAvailabilityAndPricing[] = [];
 
-        // Process rooms with comprehensive availability checking
-        const roomsWithAvailability: AvailableRoom[] = [];
-
+        // Process each room
         for (const room of allRooms) {
-          const roomType = getRoomTypeFromSlug(room.slug);
-          if (!roomType) {
-            console.log(`⚠️ Skipping room ${room.name} - unknown room type for slug: ${room.slug}`);
-            continue;
-          }
+          // Generate proper slug for the room
+          const roomSlug = getRoomSlugById(room.id);
+          
+          // Map room to RoomType for internal processing
+          const roomTypeEntry = Object.entries(ROOM_MAPPING).find(([, id]) => id === room.id);
+          const roomType = roomTypeEntry ? roomTypeEntry[0] : 'unknown';
 
           try {
-            // 🔴 CRITICAL FIX: Check BOTH bookings AND admin blocks
-
-            // 1️⃣ Check for conflicting bookings
-            const { data: bookingConflicts, error: bookingsError } = await supabase
-              .from('bookings')
-              .select('id, check_in, check_out')
-              .eq('room_id', room.id)
-              .eq('status', 'confirmed')
-              .lt('check_in', searchParams.checkOutStr)
-              .gt('check_out', searchParams.checkInStr);
-
-            if (bookingsError) {
-              console.error(`❌ Error checking bookings for room ${room.name}:`, bookingsError);
-              roomsWithAvailability.push({
-                id: room.id,
-                name: room.name,
-                base_price: room.base_price,
-                capacity: room.capacity,
-                slug: room.slug,
-                roomType,
-                isAvailable: false // Assume unavailable on error for safety
-              });
-              continue;
-            }
-
-            // 2️⃣ Check for admin availability blocks 
-            const { data: availabilityBlocks, error: blocksError } = await supabase
-              .from('room_availability')
-              .select('date, is_available')
-              .eq('room_id', room.id)
-              .in('date', dateRange);
-
-            if (blocksError) {
-              console.error(`❌ Error checking availability blocks for room ${room.name}:`, blocksError);
-              roomsWithAvailability.push({
-                id: room.id,
-                name: room.name,
-                base_price: room.base_price,
-                capacity: room.capacity,
-                slug: room.slug,
-                roomType,
-                isAvailable: false // Assume unavailable on error for safety
-              });
-              continue;
-            }
-
-            // 3️⃣ Determine final availability
             let isAvailable = true;
             let unavailableReason = '';
+            let dynamicPrice: number | undefined;
+            let pricePerNight: number | undefined;
+            let hasOverrides = false;
+            let priceBreakdown: Array<{date: string; price: number; isOverride: boolean}> = [];
 
-            // Check booking conflicts
-            if (bookingConflicts && bookingConflicts.length > 0) {
+            // Check for booking conflicts
+            const { data: conflictingBookings, error: bookingError } = await supabase
+              .from('bookings')
+              .select('check_in, check_out, guests_count')
+              .eq('room_id', room.id)
+              .eq('status', 'confirmed')
+              .or(`check_in.lt.${searchParams.checkOutStr},check_out.gt.${searchParams.checkInStr}`);
+
+            if (bookingError) throw bookingError;
+
+            if (conflictingBookings && conflictingBookings.length > 0) {
               isAvailable = false;
-              unavailableReason = `Booking conflict (${bookingConflicts.length} booking${bookingConflicts.length > 1 ? 's' : ''})`;
+              unavailableReason = `Booked (${conflictingBookings.length} conflict${conflictingBookings.length > 1 ? 's' : ''})`;
             }
 
-            // Check admin blocks (only if no booking conflicts yet)
-            if (isAvailable && availabilityBlocks && availabilityBlocks.length > 0) {
+            // Check admin availability blocks and get pricing data
+            let availabilityBlocks: any[] = [];
+            if (isAvailable) {
+              const { data: blocks, error: availError } = await supabase
+                .from('room_availability')
+                .select('date, is_available, price_override')
+                .eq('room_id', room.id)
+                .in('date', dateStrings);
+
+              if (availError) throw availError;
+
+              availabilityBlocks = blocks || [];
+
+              // Check admin blocks
               const blockedDates = availabilityBlocks.filter(block => !block.is_available);
               if (blockedDates.length > 0) {
                 isAvailable = false;
@@ -176,37 +176,75 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
               }
             }
 
+            // Calculate dynamic pricing (only if available)
+            if (isAvailable) {
+              priceBreakdown = stayDates.map(date => {
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const override = availabilityBlocks.find(block => 
+                  block.date === dateStr && block.price_override
+                );
+                
+                const basePrice = isHighSeason(date) ? room.high_season_price : room.base_price;
+                const finalPrice = override?.price_override || basePrice;
+                
+                if (override?.price_override) {
+                  hasOverrides = true;
+                }
+                
+                return {
+                  date: dateStr,
+                  price: finalPrice,
+                  isOverride: !!override?.price_override
+                };
+              });
+
+              dynamicPrice = priceBreakdown.reduce((sum, day) => sum + day.price, 0);
+              pricePerNight = priceBreakdown.length > 0 ? dynamicPrice / priceBreakdown.length : room.base_price;
+
+              console.log(`💰 ${room.name}: €${dynamicPrice} total, €${Math.round(pricePerNight)}/night avg ${hasOverrides ? '(with overrides)' : ''}`);
+            } else {
+              // Not available - still show base pricing for display
+              pricePerNight = room.base_price;
+              console.log(`📅 ${room.name}: Not available, showing base price €${pricePerNight}/night`);
+            }
+
             console.log(`${isAvailable ? '✅' : '❌'} ${room.name}: ${isAvailable ? 'AVAILABLE' : unavailableReason}`);
 
-            roomsWithAvailability.push({
+            roomsWithAvailabilityAndPricing.push({
               id: room.id,
               name: room.name,
               base_price: room.base_price,
               capacity: room.capacity,
-              slug: room.slug,
+              slug: roomSlug,
               roomType,
-              isAvailable
+              isAvailable,
+              // Dynamic pricing data
+              dynamicPrice,
+              pricePerNight: pricePerNight || room.base_price,
+              hasOverrides,
+              priceBreakdown
             });
 
           } catch (error) {
             console.error(`💥 Exception checking room ${room.name}:`, error);
             // On exception, assume unavailable for safety
-            roomsWithAvailability.push({
+            roomsWithAvailabilityAndPricing.push({
               id: room.id,
               name: room.name,
               base_price: room.base_price,
               capacity: room.capacity,
-              slug: room.slug,
+              slug: roomSlug,
               roomType,
-              isAvailable: false
+              isAvailable: false,
+              pricePerNight: room.base_price
             });
           }
         }
 
-        const availableCount = roomsWithAvailability.filter(r => r.isAvailable).length;
-        console.log(`🏁 Search complete: ${availableCount}/${roomsWithAvailability.length} rooms available`);
+        const availableCount = roomsWithAvailabilityAndPricing.filter(r => r.isAvailable).length;
+        console.log(`🏁 Search complete: ${availableCount}/${roomsWithAvailabilityAndPricing.length} rooms available`);
 
-        setRooms(roomsWithAvailability);
+        setRooms(roomsWithAvailabilityAndPricing);
 
       } catch (err) {
         console.error('💥 Search availability error:', err);

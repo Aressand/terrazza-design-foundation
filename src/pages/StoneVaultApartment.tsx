@@ -1,4 +1,4 @@
-// src/pages/StoneVaultApartment.tsx - ADDED Auto-populate from URL params
+// src/pages/StoneVaultApartment.tsx - FIXED Layout to match GardenRoom
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { differenceInDays } from "date-fns";
 import Header from "@/components/Header";
 import SEOHead from "@/components/SEOHead";
 import BookingWidget from "@/components/booking/BookingWidget";
+import MobileOptimizedImage from "@/components/MobileOptimizedImage";
 
 // Import images
 import stoneVaultHero from "@/assets/stone-vault.jpg";
@@ -65,96 +66,152 @@ const StoneVaultApartment = () => {
       <main className="min-h-screen bg-background">
         {/* Hero Image */}
         <section className="relative h-[60vh] overflow-hidden">
-          <img 
+          <MobileOptimizedImage 
             src={stoneVaultHero} 
-            alt="Historic Stone Vault Apartment" 
+            alt="Historic Stone Vault Apartment with authentic medieval architecture" 
             className="w-full h-full object-cover"
+            priority={true}
           />
           <div className="absolute inset-0 bg-stone/40" />
-          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-white">
-            <h1 className="text-4xl lg:text-6xl font-playfair mb-4">Historic Stone Vault Apartment</h1>
-            <p className="text-xl lg:text-2xl">Authentic experience for up to 4 guests</p>
+          <div className="absolute inset-0 flex flex-col justify-center items-center text-center text-white px-4">
+            <h1 className="text-3xl md:text-4xl lg:text-6xl font-playfair mb-4">Historic Stone Vault Apartment</h1>
+            <p className="text-lg md:text-xl lg:text-2xl">Authentic experience for up to 4 guests</p>
           </div>
           
           {/* Back Navigation */}
           <Link 
             to="/" 
-            className="absolute top-8 left-8 bg-white/20 backdrop-blur-sm rounded-full p-3 text-white hover:bg-white/30 transition-colors"
+            className="absolute top-4 left-4 md:top-8 md:left-8 bg-white/20 backdrop-blur-sm rounded-full p-2 md:p-3 text-white hover:bg-white/30 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Back to homepage"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </Link>
         </section>
 
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid lg:grid-cols-3 gap-12">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-12">
-                {/* Gallery */}
-                <section>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {galleryImages.map((image, index) => (
-                      <div 
-                        key={index} 
-                        className="relative overflow-hidden rounded-lg aspect-square bg-stone-light cursor-pointer group"
-                        onClick={() => setSelectedImage(index)}
-                      >
-                        <img 
-                          src={image.src} 
-                          alt={image.alt}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    ))}
+        {/* Image Gallery */}
+        <section className="py-12 lg:py-16">
+          <div className="container-bnb">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Main Image */}
+              <div className="lg:col-span-8">
+                <div className="aspect-[4/3] rounded-lg overflow-hidden shadow-soft">
+                  <MobileOptimizedImage 
+                    src={galleryImages[selectedImage].src} 
+                    alt={galleryImages[selectedImage].alt}
+                    className="w-full h-full object-cover hover-scale cursor-pointer"
+                  />
+                </div>
+              </div>
+              
+              {/* Thumbnail Grid */}
+              <div className="lg:col-span-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {galleryImages.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedImage(index)}
+                      className={`aspect-square rounded-lg overflow-hidden shadow-soft transition-all min-w-[44px] min-h-[44px] ${
+                        selectedImage === index ? 'ring-2 ring-sage' : 'hover:opacity-80'
+                      }`}
+                      aria-label={`View ${image.alt}`}
+                    >
+                      <MobileOptimizedImage 
+                        src={image.src} 
+                        alt={image.alt}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Room Description */}
+        <section className="py-12 lg:py-16">
+          <div className="container-bnb">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+              <div className="lg:col-span-2">
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-3xl lg:text-4xl font-playfair text-sage mb-4">
+                      Living Medieval History
+                    </h2>
+                    <p className="text-xl text-sage/80 mb-6">
+                      Sleep within authentic 13th century stone vaults
+                    </p>
+                    <p className="text-lg text-muted-foreground leading-relaxed">
+                      Step back in time in this extraordinary historic apartment featuring original 13th century 
+                      stone vaults and authentic Subasio pink stone walls. These barrel-vaulted ceilings and ancient walls 
+                      tell the story of medieval Assisi, offering an unmatched historical immersion that few 
+                      travelers ever experience.
+                    </p>
+                    <p className="text-lg text-muted-foreground leading-relaxed mt-4">
+                      The apartment seamlessly blends historical authenticity with modern comfort, featuring 
+                      discretely integrated amenities that respect the medieval architecture while ensuring 
+                      your stay is comfortable and memorable. Perfect for history enthusiasts and those seeking 
+                      a truly unique connection to Assisi's Franciscan heritage.
+                    </p>
                   </div>
-                </section>
 
-                {/* Description */}
-                <section className="prose prose-lg max-w-none">
-                  <h2 className="text-3xl font-playfair text-sage mb-6">Sleep Within Medieval History</h2>
-                  <p className="text-muted-foreground leading-relaxed mb-6">
-                    Experience the extraordinary opportunity to sleep within original 13th century stone vaults, 
-                    constructed from authentic Subasio pink stone. These barrel-vaulted ceilings and ancient walls 
-                    tell the story of medieval Assisi, offering an unmatched historical immersion that few 
-                    travelers ever experience.
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    The apartment seamlessly blends historical authenticity with modern comfort, featuring 
-                    discretely integrated amenities that respect the medieval architecture while ensuring 
-                    your stay is comfortable and memorable. Perfect for history enthusiasts and those seeking 
-                    a truly unique connection to Assisi's Franciscan heritage.
-                  </p>
-                </section>
-
-                {/* Amenities */}
-                <section>
-                  <h3 className="text-2xl font-playfair text-sage mb-6">Historic Features & Modern Comfort</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {amenities.map((amenity, index) => (
-                      <div key={index} className="flex items-center space-x-3">
-                        <Check className="w-5 h-5 text-sage flex-shrink-0" />
-                        <span className="text-muted-foreground">{amenity}</span>
+                  {/* Room Details */}
+                  <div>
+                    <h3 className="text-2xl font-playfair text-sage mb-4">Room Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-muted-foreground">
+                      <div className="flex justify-between border-b border-border pb-2">
+                        <span>Period:</span>
+                        <span className="font-medium">Original 13th century</span>
                       </div>
-                    ))}
+                      <div className="flex justify-between border-b border-border pb-2">
+                        <span>Beds:</span>
+                        <span className="font-medium">King bed + queen sofa bed</span>
+                      </div>
+                      <div className="flex justify-between border-b border-border pb-2">
+                        <span>Architecture:</span>
+                        <span className="font-medium">Stone barrel vaults</span>
+                      </div>
+                      <div className="flex justify-between border-b border-border pb-2">
+                        <span>Walls:</span>
+                        <span className="font-medium">Authentic Subasio pink stone</span>
+                      </div>
+                      <div className="flex justify-between border-b border-border pb-2">
+                        <span>Capacity:</span>
+                        <span className="font-medium">Up to 4 guests (8 total if connected)</span>
+                      </div>
+                    </div>
                   </div>
-                </section>
 
-                {/* Historical Significance */}
-                <section>
-                  <h3 className="text-2xl font-playfair text-sage mb-4">Living Medieval History</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    These stone vaults have witnessed 800 years of history, from medieval pilgrims to modern 
-                    travelers seeking spiritual renewal. The original Subasio pink stone walls connect you 
-                    directly to the same materials used in the construction of the Basilicas of Saint Francis 
-                    and Santa Chiara. For larger groups, this apartment can connect with our adjacent space 
-                    to accommodate up to 8 guests total.
-                  </p>
-                </section>
+                  {/* Amenities */}
+                  <div>
+                    <h3 className="text-2xl font-playfair text-sage mb-6">Historic Features & Modern Comfort</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {amenities.map((amenity, index) => (
+                        <div key={index} className="flex items-start gap-3">
+                          <Check className="w-5 h-5 text-sage shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground">{amenity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Historical Significance */}
+                  <div>
+                    <h3 className="text-2xl font-playfair text-sage mb-4">Living Medieval History</h3>
+                    <p className="text-lg text-muted-foreground leading-relaxed">
+                      These stone vaults have witnessed 800 years of history, from medieval pilgrims to modern 
+                      travelers seeking spiritual renewal. The original Subasio pink stone walls connect you 
+                      directly to the same materials used in the construction of the Basilicas of Saint Francis 
+                      and Santa Chiara. For larger groups, this apartment can connect with our adjacent space 
+                      to accommodate up to 8 guests total.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Booking Widget */}
               <div className="lg:col-span-1">
-                <BookingWidget 
+                <BookingWidget
                   roomType="stone"
                   roomName="Historic Stone Vault Apartment"
                   capacity={4}
@@ -165,7 +222,7 @@ const StoneVaultApartment = () => {
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </main>
     </>
   );
