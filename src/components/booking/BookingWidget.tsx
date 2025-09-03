@@ -1,4 +1,4 @@
-// src/components/booking/BookingWidget.tsx
+// src/components/booking/BookingWidget.tsx - COMPLETELY FIXED
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import BookingCalendar from './BookingCalendar';
-import PricingCalculator from './PricingCalculator';
 import BookingForm from './BookingForm';
 import { differenceInDays } from "date-fns";
 import { Calendar, Euro, Users, Check, AlertCircle, Loader2 } from 'lucide-react';
@@ -52,12 +51,12 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
   const { unavailableDates, loading: unavailabilityLoading } = useRoomUnavailableDates(roomType);
   const { checkAvailability, checking } = useAvailabilityCheck();
   const { createBooking, submitting, error: bookingError } = useCreateBooking();
-  const { calculatePricing } = usePricingCalculation();
+  const { calculatePricing, loading: pricingLoading } = usePricingCalculation(roomType);
 
   // Calculated values
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
-  const pricing = calculatePricing(roomData, checkIn, checkOut);
-  const canBook = checkIn && checkOut && nights > 0 && !availabilityError && roomData;
+  const pricing = calculatePricing(checkIn, checkOut);
+  const canBook = checkIn && checkOut && nights > 0 && !availabilityError && roomData && pricing;
 
   // Check availability when dates change
   useEffect(() => {
@@ -73,99 +72,153 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         if (!result.isAvailable) {
           setAvailabilityError(
             result.conflicts && result.conflicts.length > 0 
-              ? 'These dates are not available due to existing bookings'
-              : 'These dates are not available'
+              ? `Selected dates conflict with existing booking`
+              : 'Selected dates are not available'
           );
         } else {
           setAvailabilityError(null);
         }
-      } catch (err) {
-        setAvailabilityError('Unable to verify availability. Please try again.');
+      } catch (error) {
+        console.error('Availability check failed:', error);
+        setAvailabilityError('Failed to check availability. Please try again.');
       }
     };
 
     checkDatesAvailability();
-  }, [checkIn, checkOut, roomType, checkAvailability, nights]);
+  }, [checkIn, checkOut, nights, roomType, checkAvailability]);
 
   const handleBookingStart = () => {
-    if (canBook) {
-      setIsBookingOpen(true);
-    }
+    if (!canBook) return;
+    setIsBookingOpen(true);
   };
 
+  // ✅ FIXED: Correct BookingForm callback
   const handleBookingComplete = async (formData: BookingFormData) => {
     if (!checkIn || !checkOut || !pricing) return;
 
-    const confirmation = await createBooking(
-      roomType,
-      checkIn,
-      checkOut,
-      formData,
-      pricing.totalPrice
-    );
+    try {
+      const confirmation = await createBooking(
+        roomType,
+        checkIn,
+        checkOut,
+        formData,
+        pricing.totalPrice
+      );
 
-    if (confirmation) {
-      setBookingConfirmation(confirmation);
-      setIsBookingComplete(true);
+      if (confirmation) {
+        setBookingConfirmation({
+          ...confirmation,
+          room_name: roomName
+        });
+        setIsBookingComplete(true);
+        setIsBookingOpen(false);
+      }
+    } catch (error) {
+      console.error('Booking submission failed:', error);
     }
   };
 
-  const handleCloseBooking = () => {
-    setIsBookingOpen(false);
-    if (isBookingComplete) {
-      setIsBookingComplete(false);
-      setBookingConfirmation(null);
-    }
+  const handleNewBooking = () => {
+    setIsBookingComplete(false);
+    setBookingConfirmation(null);
+    setCheckIn(null);
+    setCheckOut(null);
+    setAvailabilityError(null);
   };
 
-  // Loading states
-  if (roomLoading) {
+  // Show loading state while room data or pricing data loads
+  if (roomLoading || pricingLoading) {
     return (
-      <Card className={`sticky top-8 shadow-elegant ${className}`}>
+      <Card className={className}>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-sage" />
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span className="text-muted-foreground">Loading booking options...</span>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // Error states
+  // Show error state
   if (roomError) {
     return (
-      <Card className={`sticky top-8 shadow-elegant ${className}`}>
+      <Card className={className}>
         <CardContent className="p-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Unable to load room information. Please refresh the page.
-            </AlertDescription>
+            <AlertDescription>{roomError}</AlertDescription>
           </Alert>
         </CardContent>
       </Card>
     );
   }
 
-  if (!roomData) {
-    return null;
+  // Booking complete state
+  if (isBookingComplete && bookingConfirmation) {
+    return (
+      <Card className={`${className} border-green-200 bg-green-50`}>
+        <CardContent className="p-6">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-8 h-8 text-white" />
+            </div>
+            
+            <div>
+              <h3 className="text-xl font-semibold text-green-800 mb-2">
+                Booking Confirmed!
+              </h3>
+              <p className="text-sm text-green-700 mb-4">
+                Confirmation: <span className="font-mono font-semibold">
+                  {bookingConfirmation.confirmation_number}
+                </span>
+              </p>
+              
+              <div className="bg-white rounded-lg p-4 text-left space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Guest:</span>
+                  <span className="text-sm font-medium">{bookingConfirmation.guest_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Room:</span>
+                  <span className="text-sm font-medium">{bookingConfirmation.room_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Total:</span>
+                  <span className="text-sm font-semibold text-green-700">
+                    €{bookingConfirmation.total_price}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={handleNewBooking} variant="outline" size="sm">
+              Book Another Stay
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <>
-      <Card className={`sticky top-8 shadow-elegant ${className}`}>
+      <Card className={className}>
         <CardContent className="p-6">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-playfair text-sage mb-2">
-              Reserve Your {roomName}
-            </h3>
-            <div className="text-3xl font-bold text-terracotta mb-1">
-              From €{roomData.base_price}
-              <span className="text-base font-normal text-muted-foreground">/night</span>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-lg font-semibold">Book Your Stay</h3>
+              {roomData && (
+                <span className="text-sm text-muted-foreground">
+                  from €{roomData.base_price}/night
+                </span>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground">
-              Up to {capacity} guest{capacity > 1 ? 's' : ''}
-            </p>
+            <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+              <Users className="w-4 h-4" />
+              <span>up to {capacity} guests</span>
+            </div>
           </div>
 
           {/* Date Selection */}
@@ -204,11 +257,13 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             )}
           </div>
 
-          {/* Pricing Display */}
+          {/* Dynamic Pricing Display */}
           {pricing && canBook && (
             <div className="mb-6 space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-stone-light">
-                <span className="text-sm">€{pricing.basePrice} × {nights} night{nights > 1 ? 's' : ''}</span>
+                <span className="text-sm">
+                  €{pricing.basePrice} avg × {nights} night{nights > 1 ? 's' : ''}
+                </span>
                 <span className="text-sm">€{pricing.roomTotal}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-stone-light">
@@ -218,6 +273,9 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
               <div className="flex justify-between items-center py-2 font-semibold">
                 <span>Total</span>
                 <span className="text-terracotta">€{pricing.totalPrice}</span>
+              </div>
+              <div className="text-xs text-muted-foreground text-center">
+                💰 Pricing includes custom rates for selected dates
               </div>
             </div>
           )}
@@ -240,7 +298,9 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             ) : nights <= 0 ? (
               'Invalid Dates'
             ) : availabilityError ? (
-              'Not Available'
+              'Dates Unavailable'
+            ) : pricingLoading ? (
+              'Loading Prices...'
             ) : (
               `Reserve for €${pricing?.totalPrice || 0}`
             )}
@@ -252,94 +312,18 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         </CardContent>
       </Card>
 
-      {/* Booking Dialog */}
-      <Dialog open={isBookingOpen} onOpenChange={handleCloseBooking}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* ✅ FIXED: Booking Form Dialog with correct props */}
+      <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {isBookingComplete ? 'Booking Confirmed!' : `Book ${roomName}`}
-            </DialogTitle>
+            <DialogTitle>Complete Your Booking</DialogTitle>
           </DialogHeader>
-
-          {isBookingComplete && bookingConfirmation ? (
-            // Confirmation View
-            <div className="space-y-6">
-              <div className="text-center py-6">
-                <div className="w-16 h-16 bg-sage rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">
-                  Thank you, {bookingConfirmation.guest_name.split(' ')[0]}!
-                </h3>
-                <p className="text-muted-foreground">Your booking has been confirmed</p>
-              </div>
-
-              <div className="bg-stone-light rounded-lg p-6">
-                <h4 className="font-semibold mb-4">Booking Details</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Confirmation Number:</span>
-                    <span className="font-mono font-semibold">
-                      {bookingConfirmation.confirmation_number}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Guest:</span>
-                    <span>{bookingConfirmation.guest_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Email:</span>
-                    <span>{bookingConfirmation.guest_email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Room:</span>
-                    <span>{bookingConfirmation.room_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Guests:</span>
-                    <span>{bookingConfirmation.guests_count}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Duration:</span>
-                    <span>{nights} night{nights > 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold border-t pt-2 mt-3">
-                    <span>Total Paid:</span>
-                    <span className="text-terracotta">€{bookingConfirmation.total_price}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-sage/10 rounded-lg p-4">
-                <h4 className="font-medium mb-2">What's Next?</h4>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>✓ Confirmation email sent to {bookingConfirmation.guest_email}</li>
-                  <li>✓ Check-in instructions will be sent 48 hours before arrival</li>
-                  <li>✓ Our team will contact you if needed</li>
-                </ul>
-              </div>
-
-              <Button onClick={handleCloseBooking} variant="terracotta" className="w-full">
-                Close
-              </Button>
-            </div>
-          ) : (
-            // Booking Form
-            <>
-              {bookingError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{bookingError}</AlertDescription>
-                </Alert>
-              )}
-              
-              <BookingForm
-                totalPrice={pricing?.totalPrice || 0}
-                nights={nights}
-                onComplete={handleBookingComplete}
-              />
-            </>
-          )}
+          
+          <BookingForm
+            nights={nights}
+            totalPrice={pricing?.totalPrice || 0}
+            onComplete={handleBookingComplete}
+          />
         </DialogContent>
       </Dialog>
     </>
