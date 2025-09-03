@@ -1,4 +1,4 @@
-// src/pages/AdminDashboard.tsx
+// src/pages/AdminDashboard.tsx - Updated with Active Price Management Link
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +74,7 @@ const AdminDashboard = () => {
 
         {/* Management Tools */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 🎯 ACTIVATED PRICE MANAGEMENT */}
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -85,6 +86,11 @@ const AdminDashboard = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Set custom prices for specific dates and manage seasonal rates.
               </p>
+              <Button className="w-full" asChild>
+                <Link to="/admin/price-management">
+                  Manage Prices
+                </Link>
+              </Button>
             </CardContent>
           </Card>
 
@@ -100,10 +106,10 @@ const AdminDashboard = () => {
                 Block or unblock specific dates for maintenance or personal use.
               </p>
               <Button className="w-full" asChild>
-              <Link to="/admin/availability">
-                Manage Availability
-              </Link>
-            </Button>
+                <Link to="/admin/availability">
+                  Manage Availability
+                </Link>
+              </Button>
             </CardContent>
           </Card>
 
