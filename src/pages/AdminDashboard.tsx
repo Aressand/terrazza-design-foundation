@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Calendar, DollarSign, Users, TrendingUp, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import ICalSyncTester from '@/components/admin/ICalSyncTester';
 
 const AdminDashboard = () => {
   return (
@@ -113,19 +114,20 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+            <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Settings className="h-5 w-5 mr-2 text-sage" />
-                Settings
+                iCal Sync Tester
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Manage general settings and preferences.
+                Test calendar synchronization functionality.
               </p>
-              <Button className="w-full" disabled>
-                Coming Soon
+              <Button className="w-full" asChild>
+                <Link to="/admin/ical-tester">
+                  Open Tester
+                </Link>
               </Button>
             </CardContent>
           </Card>
