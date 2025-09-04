@@ -17,6 +17,7 @@ import ProtectedRoute from "@/components/admin/ProtectedRoute";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AvailabilityManagement from "@/pages/AvailabilityManagement";
 import PriceManagement from "@/pages/PriceManagement";
+import ICalTester from "@/pages/ICalTester";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/availability" element={<ProtectedRoute><AvailabilityManagement /></ProtectedRoute>} />
             <Route path="/admin/price-management" element={<ProtectedRoute><PriceManagement /></ProtectedRoute>} />
+            <Route path="/admin/ical-tester" element={<ProtectedRoute><ICalTester /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
