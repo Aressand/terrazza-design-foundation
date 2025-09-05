@@ -1,10 +1,15 @@
-// src/hooks/useICalSync.ts - TYPESCRIPT FIXED (Type assertion solution)
+// src/hooks/useICalSync.ts - Production Ready iCal Sync Hook
+// Automatically syncs Airbnb/Booking.com calendars with room availability
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, eachDayOfInterval } from 'date-fns';
 import ICAL from 'ical.js';
 
-// Simplified interfaces
+// ===============================
+// TYPE DEFINITIONS
+// ===============================
+
 interface ParsedEvent {
   uid: string;
   summary: string;
@@ -59,47 +64,89 @@ interface CalendarConfig {
   last_sync_status?: string | null;
 }
 
+// ===============================
+// MAIN HOOK
+// ===============================
+
 export const useICalSync = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
+  // ===============================
+  // CORE SYNC FUNCTIONS
+  // ===============================
+
   /**
-   * Download iCal data via Edge Function
+   * Download iCal data via Edge Function (Direct Fetch)
+   * Bypasses supabase.functions.invoke() bug with direct HTTP call
    */
   const downloadICalData = useCallback(async (url: string): Promise<string> => {
-    console.log('Downloading iCal via Edge Function:', url);
-    
-    const { data, error } = await supabase.functions.invoke('ical-proxy', {
-      body: { url },
-      headers: { 'Content-Type': 'application/json' }
-    });
+    try {
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No authenticated session found');
+      }
 
-    if (error) {
-      throw new Error(`Edge Function error: ${error.message}`);
+      // Direct fetch to Edge Function with proper authorization
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ical-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ url })
+      });
+
+      if (!response.ok) {
+        // Get detailed error from Edge Function
+        let errorMessage = `Edge Function HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = `${errorMessage}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Parse response from Edge Function
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Edge Function reported failure');
+      }
+
+      // Validate returned data
+      if (!result.data || typeof result.data !== 'string') {
+        throw new Error('Edge Function returned invalid data format');
+      }
+
+      if (!result.data.includes('BEGIN:VCALENDAR')) {
+        throw new Error('Edge Function returned invalid iCal data');
+      }
+
+      return result.data;
+      
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown download error';
+      throw new Error(`Failed to download calendar from ${url}: ${message}`);
     }
-
-    if (!data?.success) {
-      throw new Error(data?.error || 'Edge Function failed');
-    }
-
-    console.log(`Downloaded ${data.size} characters from ${data.source}`);
-    return data.data;
   }, []);
 
   /**
-   * Parse iCal data using ICAL.js
+   * Parse iCal data using ICAL.js library
+   * Extracts booking events with dates and details
    */
   const parseICalEvents = useCallback((icalData: string): ParsedEvent[] => {
-    console.log('Parsing iCal data...');
-    
     try {
       const jcalData = ICAL.parse(icalData);
       const vcalendar = new ICAL.Component(jcalData);
       const vevents = vcalendar.getAllSubcomponents('vevent');
-      
-      console.log(`Found ${vevents.length} VEVENT components`);
       
       const parsedEvents: ParsedEvent[] = [];
 
@@ -107,6 +154,7 @@ export const useICalSync = () => {
         try {
           const icalEvent = new ICAL.Event(vevent);
           
+          // Skip events without valid dates
           if (!icalEvent.startDate || !icalEvent.endDate) {
             continue;
           }
@@ -114,6 +162,7 @@ export const useICalSync = () => {
           const startDate = icalEvent.startDate.toJSDate();
           const endDate = icalEvent.endDate.toJSDate();
 
+          // Skip invalid date ranges
           if (startDate >= endDate) {
             continue;
           }
@@ -127,80 +176,72 @@ export const useICalSync = () => {
           });
 
         } catch (eventError) {
-          console.warn(`Failed to parse event:`, eventError);
+          // Skip individual malformed events, continue processing others
           continue;
         }
       }
 
-      console.log(`Successfully parsed ${parsedEvents.length} valid events`);
       return parsedEvents;
 
     } catch (parseError) {
-      console.error('Failed to parse iCal data:', parseError);
-      throw new Error(`iCal parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      const message = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
+      throw new Error(`iCal parsing failed: ${message}`);
     }
   }, []);
 
   /**
-   * Convert events to availability records (FIXED: excludes checkout date)
+   * Convert parsed events into room availability records
+   * Generates blocked dates for each day of each booking
    */
-  const createAvailabilityRecords = useCallback((
-    events: ParsedEvent[], 
-    roomId: string
-  ): AvailabilityRecord[] => {
-    console.log(`Converting ${events.length} events to availability records...`);
-    
+  const createAvailabilityRecords = useCallback((events: ParsedEvent[], roomId: string): AvailabilityRecord[] => {
     const records: AvailabilityRecord[] = [];
     const processedDates = new Set<string>();
 
     for (const event of events) {
       try {
-        const allDates = eachDayOfInterval({
+        // Generate all dates in the booking period (inclusive start, exclusive end)
+        const eventDates = eachDayOfInterval({
           start: event.startDate,
-          end: event.endDate
+          end: new Date(event.endDate.getTime() - 24 * 60 * 60 * 1000) // Exclude checkout day
         });
 
-        // Exclude checkout date (last day) - FIX for checkout bug
-        const bookingDates = allDates.slice(0, -1);
-
-        for (const date of bookingDates) {
+        for (const date of eventDates) {
           const dateStr = format(date, 'yyyy-MM-dd');
           
-          if (processedDates.has(dateStr)) {
-            continue;
+          // Avoid duplicate dates from overlapping events
+          if (!processedDates.has(dateStr)) {
+            processedDates.add(dateStr);
+            
+            records.push({
+              room_id: roomId,
+              date: dateStr,
+              is_available: false, // Block the date
+              created_at: new Date().toISOString()
+            });
           }
-          
-          processedDates.add(dateStr);
-
-          records.push({
-            room_id: roomId,
-            date: dateStr,
-            is_available: false,
-            created_at: new Date().toISOString()
-          });
         }
-
-      } catch (err) {
-        console.warn(`Failed to process event ${event.uid}:`, err);
+      } catch (dateError) {
+        // Skip events with invalid dates, continue with others
         continue;
       }
     }
 
-    console.log(`Created ${records.length} availability records`);
     return records;
   }, []);
 
+  // ===============================
+  // DATABASE OPERATIONS
+  // ===============================
+
   /**
-   * Get active calendar configurations - FIXED WITH TYPE ASSERTION
+   * Fetch active calendar configurations from database
+   * Includes room names joined from rooms table
    */
   const getActiveConfigs = useCallback(async (): Promise<CalendarConfig[]> => {
-    console.log('Fetching active calendar configurations...');
-    
     try {
-      // TYPE ASSERTION FIX: Cast supabase to any to bypass type check
       const supabaseAny = supabase as any;
       
-      // Step 1: Get room_ical_configs
+      // Get active calendar configurations
       const { data: configsData, error: configsError } = await supabaseAny
         .from('room_ical_configs')
         .select('*')
@@ -212,11 +253,10 @@ export const useICalSync = () => {
       }
 
       if (!configsData || configsData.length === 0) {
-        console.log('No active configurations found');
         return [];
       }
 
-      // Step 2: Get room names separately
+      // Get corresponding room names
       const roomIds = configsData.map((config: any) => config.room_id);
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
@@ -224,10 +264,10 @@ export const useICalSync = () => {
         .in('id', roomIds);
 
       if (roomsError) {
-        console.warn('Failed to fetch room names:', roomsError);
+        console.warn('Warning: Failed to fetch room names:', roomsError);
       }
 
-      // Step 3: Manually combine data
+      // Create room name lookup map
       const roomNameMap = new Map();
       if (roomsData) {
         roomsData.forEach((room: any) => {
@@ -235,7 +275,7 @@ export const useICalSync = () => {
         });
       }
 
-      // Step 4: Create final config objects
+      // Combine configurations with room names
       const configs: CalendarConfig[] = configsData.map((config: any) => ({
         id: config.id,
         room_id: config.room_id,
@@ -248,43 +288,37 @@ export const useICalSync = () => {
         last_sync_status: config.last_sync_status
       }));
 
-      console.log(`Found ${configs.length} active configurations`);
       return configs;
 
     } catch (err) {
-      console.error('Failed to fetch configurations:', err);
+      console.error('Failed to fetch calendar configurations:', err);
       throw err;
     }
   }, []);
 
   /**
-   * Clear existing availability data for room
+   * Clear existing availability data for a specific room
+   * Called before inserting new sync data
    */
   const clearAvailabilityData = useCallback(async (roomId: string): Promise<void> => {
-    console.log(`Clearing availability data for room: ${roomId}`);
-    
     const { error } = await supabase
       .from('room_availability')
       .delete()
       .eq('room_id', roomId);
 
     if (error) {
-      throw new Error(`Failed to clear data: ${error.message}`);
+      throw new Error(`Failed to clear availability data: ${error.message}`);
     }
-
-    console.log('Availability data cleared');
   }, []);
 
   /**
-   * Insert availability records in batches
+   * Insert availability records in optimized batches
+   * Processes 100 records at a time for performance
    */
   const insertAvailabilityRecords = useCallback(async (records: AvailabilityRecord[]): Promise<void> => {
     if (records.length === 0) {
-      console.log('No records to insert');
       return;
     }
-    
-    console.log(`Inserting ${records.length} availability records...`);
     
     const batchSize = 100;
     
@@ -296,15 +330,15 @@ export const useICalSync = () => {
         .insert(batch);
 
       if (error) {
-        throw new Error(`Batch ${Math.floor(i/batchSize) + 1} failed: ${error.message}`);
+        const batchNumber = Math.floor(i / batchSize) + 1;
+        throw new Error(`Batch ${batchNumber} insertion failed: ${error.message}`);
       }
     }
-
-    console.log('All records inserted successfully');
   }, []);
 
   /**
-   * Update configuration with sync result - FIXED WITH TYPE ASSERTION
+   * Update calendar configuration with sync results
+   * Records success/failure, event counts, and timestamps
    */
   const updateSyncResult = useCallback(async (
     configId: string,
@@ -314,7 +348,6 @@ export const useICalSync = () => {
     errorMessage?: string
   ): Promise<void> => {
     try {
-      // TYPE ASSERTION FIX: Cast supabase to any
       const supabaseAny = supabase as any;
       
       const updateData = {
@@ -332,43 +365,43 @@ export const useICalSync = () => {
         .eq('id', configId);
 
       if (error) {
-        console.warn('Failed to update sync result:', error);
-      } else {
-        console.log('Sync result updated successfully');
+        console.warn('Warning: Failed to update sync result:', error);
       }
 
     } catch (updateError) {
-      console.warn('Failed to update sync result:', updateError);
+      console.warn('Warning: Failed to update sync result:', updateError);
     }
   }, []);
 
+  // ===============================
+  // SYNC ORCHESTRATION
+  // ===============================
+
   /**
-   * Sync single calendar configuration
+   * Synchronize a single calendar configuration
+   * Complete flow: download -> parse -> clear -> insert -> update
    */
   const syncSingleConfig = useCallback(async (config: CalendarConfig): Promise<RoomSyncResult> => {
     const startTime = Date.now();
-    console.log(`Syncing ${config.room_name} (${config.platform})`);
     
     try {
-      // Download iCal data
+      // Step 1: Download calendar data
       const icalData = await downloadICalData(config.ical_url);
       
-      // Parse events
+      // Step 2: Parse events from calendar
       const events = parseICalEvents(icalData);
       
-      // Clear existing data
+      // Step 3: Clear existing availability data
       await clearAvailabilityData(config.room_id);
       
-      // Create and insert new records
+      // Step 4: Create and insert new availability records
       const records = createAvailabilityRecords(events, config.room_id);
       await insertAvailabilityRecords(records);
       
       const executionTime = Date.now() - startTime;
       
-      // Update database
+      // Step 5: Update configuration with success
       await updateSyncResult(config.id, true, events.length, records.length);
-      
-      console.log(`${config.room_name} (${config.platform}): ${events.length} events → ${records.length} dates`);
       
       return {
         room_id: config.room_id,
@@ -382,11 +415,9 @@ export const useICalSync = () => {
       
     } catch (err) {
       const executionTime = Date.now() - startTime;
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : 'Unknown sync error';
       
-      console.error(`${config.room_name} (${config.platform}) failed:`, errorMessage);
-      
-      // Update database with error
+      // Update configuration with error
       await updateSyncResult(config.id, false, 0, 0, errorMessage);
       
       return {
@@ -403,11 +434,41 @@ export const useICalSync = () => {
   }, [downloadICalData, parseICalEvents, clearAvailabilityData, createAvailabilityRecords, insertAvailabilityRecords, updateSyncResult]);
 
   /**
-   * Manual sync of all active calendars
+   * Get calendar configurations that need synchronization
+   * Filters by sync interval and last sync time
+   */
+  const getPendingConfigs = useCallback(async (): Promise<CalendarConfig[]> => {
+    const allConfigs = await getActiveConfigs();
+    const now = new Date();
+    
+    const pendingConfigs = allConfigs.filter(config => {
+      // Sync if never synced before
+      if (!config.last_sync_at) {
+        return true;
+      }
+      
+      try {
+        const lastSync = new Date(config.last_sync_at);
+        const hoursAgo = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
+        return hoursAgo >= config.sync_interval_hours;
+      } catch {
+        // Sync if last sync date is invalid
+        return true;
+      }
+    });
+
+    return pendingConfigs;
+  }, [getActiveConfigs]);
+
+  // ===============================
+  // PUBLIC API METHODS
+  // ===============================
+
+  /**
+   * Manual synchronization of all active calendars
+   * Used by admin interface with progress tracking
    */
   const syncAllCalendars = useCallback(async (): Promise<MultiRoomSyncResult> => {
-    console.log('Starting manual multi-room sync');
-    
     setLoading(true);
     setError(null);
     setProgress({ step: 'Loading configurations', current: 0, total: 0 });
@@ -422,7 +483,7 @@ export const useICalSync = () => {
     };
 
     try {
-      // Get active configurations
+      // Load active configurations
       const configs = await getActiveConfigs();
       result.totalConfigs = configs.length;
       
@@ -430,7 +491,7 @@ export const useICalSync = () => {
         throw new Error('No active calendar configurations found');
       }
 
-      // Sync each configuration
+      // Synchronize each configuration with progress updates
       for (let i = 0; i < configs.length; i++) {
         const config = configs[i];
         
@@ -450,7 +511,7 @@ export const useICalSync = () => {
           result.failedSyncs++;
         }
 
-        // Small delay between rooms (1 second for manual sync)
+        // Small delay between syncs to be respectful to external services
         if (i < configs.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -458,8 +519,6 @@ export const useICalSync = () => {
 
       result.success = result.successfulSyncs > 0;
       setLastSyncTime(new Date());
-
-      console.log(`Manual sync completed: ${result.successfulSyncs}/${result.totalConfigs} successful`);
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown sync error';
@@ -474,38 +533,10 @@ export const useICalSync = () => {
   }, [getActiveConfigs, syncSingleConfig]);
 
   /**
-   * Get configurations that need sync (client-side filtering)
-   */
-  const getPendingConfigs = useCallback(async (): Promise<CalendarConfig[]> => {
-    console.log('Checking for configurations that need sync...');
-    
-    const allConfigs = await getActiveConfigs();
-    const now = new Date();
-    
-    const pendingConfigs = allConfigs.filter(config => {
-      if (!config.last_sync_at) {
-        return true; // Never synced
-      }
-      
-      try {
-        const lastSync = new Date(config.last_sync_at);
-        const hoursAgo = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
-        return hoursAgo >= config.sync_interval_hours;
-      } catch {
-        return true; // Invalid date, needs sync
-      }
-    });
-
-    console.log(`Found ${pendingConfigs.length} configurations needing sync`);
-    return pendingConfigs;
-  }, [getActiveConfigs]);
-
-  /**
-   * Process automatic sync (for cron jobs)
+   * Automatic synchronization for scheduled operations (cron jobs)
+   * Only syncs configurations that are due for update
    */
   const processAutomaticSync = useCallback(async (): Promise<MultiRoomSyncResult> => {
-    console.log('Processing automatic sync...');
-    
     const result: MultiRoomSyncResult = {
       success: false,
       totalConfigs: 0,
@@ -516,17 +547,17 @@ export const useICalSync = () => {
     };
 
     try {
-      // Get configurations that need sync
+      // Get only configurations that need sync
       const configs = await getPendingConfigs();
       result.totalConfigs = configs.length;
 
       if (configs.length === 0) {
-        console.log('No configurations need sync at this time');
+        // No configs need sync - this is success
         result.success = true;
         return result;
       }
 
-      // Process each configuration (no delay for automatic sync)
+      // Process each pending configuration
       for (const config of configs) {
         const syncResult = await syncSingleConfig(config);
         result.results.push(syncResult);
@@ -539,7 +570,6 @@ export const useICalSync = () => {
       }
 
       result.success = result.successfulSyncs > 0;
-      console.log(`Automatic sync completed: ${result.successfulSyncs}/${result.totalConfigs} successful`);
 
     } catch (err) {
       console.error('Automatic sync failed:', err);
@@ -549,7 +579,8 @@ export const useICalSync = () => {
   }, [getPendingConfigs, syncSingleConfig]);
 
   /**
-   * Get sync status for monitoring
+   * Get current sync status for monitoring
+   * Returns summary of all configurations
    */
   const getSyncStatus = useCallback(async () => {
     const configs = await getActiveConfigs();
@@ -563,7 +594,8 @@ export const useICalSync = () => {
   }, [getActiveConfigs]);
 
   /**
-   * DEBUGGING: Test if table exists
+   * Test database table accessibility
+   * Used for debugging and health checks
    */
   const testTableAccess = useCallback(async () => {
     try {
@@ -578,7 +610,6 @@ export const useICalSync = () => {
         return false;
       }
       
-      console.log('Table access test successful:', data);
       return true;
     } catch (err) {
       console.error('Table access test exception:', err);
@@ -586,8 +617,12 @@ export const useICalSync = () => {
     }
   }, []);
 
+  // ===============================
+  // HOOK RETURN INTERFACE
+  // ===============================
+
   return {
-    // Primary functions
+    // Primary sync operations
     syncAllCalendars,
     processAutomaticSync,
     
@@ -596,10 +631,16 @@ export const useICalSync = () => {
     getPendingConfigs,
     getSyncStatus,
     
-    // Debugging
+    // Individual operations (for testing/debugging)
+    downloadICalData,
+    parseICalEvents,
+    clearAvailabilityData,
+    createAvailabilityRecords,
+    
+    // Utilities
     testTableAccess,
     
-    // State
+    // State management
     loading,
     error,
     progress,
