@@ -1,15 +1,15 @@
-// src/pages/ICalTester.tsx
-
+// src/pages/ICalTester.tsx 
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
-import ICalSyncTester from '@/components/admin/ICalSyncTester';
+// CAMBIA QUESTA RIGA - usa il nuovo tester per l'hook
+import ICalHookTester from '@/components/admin/ICalHookTester';
 
 const ICalTester = () => {
   return (
-    <AdminLayout title="iCal Sync Tester - Terrazza Santa Chiara">
+    <AdminLayout title="iCal Hook Tester - Terrazza Santa Chiara">
       <div className="space-y-6">
         {/* Back Button */}
         <div className="flex items-center justify-between">
@@ -21,8 +21,8 @@ const ICalTester = () => {
           </Button>
         </div>
 
-        {/* Tester Component */}
-        <ICalSyncTester />
+        {/* Hook Tester Component */}
+        <ICalHookTester />
       </div>
     </AdminLayout>
   );
