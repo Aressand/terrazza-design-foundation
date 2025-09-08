@@ -1,4 +1,4 @@
-// src/hooks/useBooking.ts - UPDATED with Dynamic Pricing
+// src/hooks/useBooking.ts - UPDATED with Dynamic Pricing + FIXED Availability Check
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,8 @@ import type {
   BookingSubmission, 
   BookingConfirmation,
   AvailabilityCheck,
-  PricingCalculation 
+  PricingCalculation,
+  ConflictType // 🆕 Import new type
 } from '@/types/booking';
 import { format, eachDayOfInterval } from 'date-fns';
 
@@ -53,7 +54,8 @@ export const useRoomData = (roomType: RoomType) => {
 };
 
 /**
- * Hook to check room availability for given dates
+ * 🆕 FIXED Hook to check room availability for given dates
+ * Now checks both bookings table AND room_availability table to prevent overbooking
  */
 export const useAvailabilityCheck = () => {
   const [checking, setChecking] = useState(false);
@@ -70,21 +72,62 @@ export const useAvailabilityCheck = () => {
       const checkInStr = format(checkIn, 'yyyy-MM-dd');
       const checkOutStr = format(checkOut, 'yyyy-MM-dd');
 
-      // Check for conflicting bookings
-      const { data: conflicts, error } = await supabase
+      // 🆕 Generate array of all nights in the stay (check-in to check-out exclusive)
+      const stayDates = eachDayOfInterval({ start: checkIn, end: checkOut })
+        .slice(0, -1) // Remove checkout day (not a night stayed)
+        .map(date => format(date, 'yyyy-MM-dd'));
+
+      // Check 1: Conflicting bookings in bookings table
+      const { data: bookingConflicts, error: bookingError } = await supabase
         .from('bookings')
         .select('check_in, check_out, guest_name')
         .eq('room_id', roomId)
         .eq('status', 'confirmed')
         .or(`and(check_in.lt.${checkOutStr},check_out.gt.${checkInStr})`);
 
-      if (error) throw error;
+      if (bookingError) throw bookingError;
 
-      const isAvailable = !conflicts || conflicts.length === 0;
+      // Check 2: 🆕 Blocked dates in room_availability table (iCal sync blocks)
+      const { data: availabilityConflicts, error: availabilityError } = await supabase
+        .from('room_availability')
+        .select('date, is_available')
+        .eq('room_id', roomId)
+        .eq('is_available', false)
+        .in('date', stayDates);
+
+      if (availabilityError) throw availabilityError;
+
+      // 🆕 Combine all conflicts
+      const allConflicts: ConflictType[] = [
+        ...(bookingConflicts || []).map(booking => ({
+          type: 'booking' as const,
+          check_in: booking.check_in,
+          check_out: booking.check_out,
+          guest_name: booking.guest_name
+        })),
+        ...(availabilityConflicts || []).map(block => ({
+          type: 'blocked' as const,
+          date: block.date,
+          reason: 'Admin blocked or external calendar sync'
+        }))
+      ];
+
+      const isAvailable = allConflicts.length === 0;
+
+      // 🆕 Enhanced logging for debugging
+      if (!isAvailable) {
+        console.log(`🚫 Availability check FAILED for room ${roomId} (${checkInStr} to ${checkOutStr})`);
+        console.log(`📅 Nights checked: ${stayDates.join(', ')}`);
+        console.log(`🔴 Booking conflicts: ${bookingConflicts?.length || 0}`);
+        console.log(`🔴 Blocked dates: ${availabilityConflicts?.length || 0}`);
+        console.log('🔍 All conflicts:', allConflicts);
+      } else {
+        console.log(`✅ Availability check PASSED for room ${roomId} (${checkInStr} to ${checkOutStr})`);
+      }
 
       return {
         isAvailable,
-        conflicts: conflicts || []
+        conflicts: allConflicts
       };
     } catch (err) {
       console.error('Error checking availability:', err);
@@ -101,61 +144,52 @@ export const useAvailabilityCheck = () => {
 };
 
 /**
- * 🆕 UPDATED Hook to calculate pricing with dynamic price overrides
+ * Hook to calculate pricing with dynamic price overrides
  */
 export const usePricingCalculation = (roomType: RoomType) => {
-  // 🆕 Use the availability management hook to get price function
+  // Use the availability management hook to get price function
   const { getPriceForDate, roomData, loading } = useAvailabilityManagement(roomType);
 
   const calculatePricing = useCallback((
     checkIn: Date | null,
     checkOut: Date | null
   ): PricingCalculation | null => {
-    // Wait for room data to load
-    if (!roomData || !checkIn || !checkOut || loading) return null;
-
-    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    if (nights <= 0) return null;
-
-    // 🆕 Calculate price for each night using dynamic pricing
-    const dateRange = eachDayOfInterval({ start: checkIn, end: checkOut }).slice(0, -1); // Exclude checkout day
-    
-    let totalRoomCost = 0;
-    let nightlyRates: number[] = [];
-    
-    for (const date of dateRange) {
-      const nightPrice = getPriceForDate(date);
-      totalRoomCost += nightPrice;
-      nightlyRates.push(nightPrice);
+    if (!checkIn || !checkOut || !roomData || !getPriceForDate) {
+      return null;
     }
 
-    const avgNightlyRate = Math.round(totalRoomCost / nights);
-    const cleaningFee = 25; // Fixed cleaning fee
-    const totalPrice = totalRoomCost + cleaningFee;
-
-    console.log(`💰 Dynamic pricing calculation for ${roomType}:`, {
-      dates: dateRange.map(d => format(d, 'yyyy-MM-dd')),
-      nightlyRates,
-      totalRoomCost,
-      avgNightlyRate,
-      totalPrice
-    });
-
-    return {
-      basePrice: avgNightlyRate, // Average price across all nights
-      nights,
-      roomTotal: totalRoomCost,
-      cleaningFee,
-      totalPrice,
-      priceBreakdown: {
-        nightlyRate: avgNightlyRate,
-        totalNights: nights,
-        subtotal: totalRoomCost,
-        fees: cleaningFee,
-        total: totalPrice
+    try {
+      const stayDates = eachDayOfInterval({ start: checkIn, end: checkOut }).slice(0, -1);
+      
+      let roomTotal = 0;
+      for (const date of stayDates) {
+        roomTotal += getPriceForDate(date);
       }
-    };
-  }, [getPriceForDate, roomData, loading]);
+
+      const nights = stayDates.length;
+      const basePrice = roomTotal / nights; // Average nightly rate
+      const cleaningFee = 0; // No cleaning fee for now
+      const totalPrice = roomTotal + cleaningFee;
+
+      return {
+        basePrice,
+        nights,
+        roomTotal,
+        cleaningFee,
+        totalPrice,
+        priceBreakdown: {
+          nightlyRate: basePrice,
+          totalNights: nights,
+          subtotal: roomTotal,
+          fees: cleaningFee,
+          total: totalPrice
+        }
+      };
+    } catch (error) {
+      console.error('Error calculating pricing:', error);
+      return null;
+    }
+  }, [roomData, getPriceForDate]);
 
   return { calculatePricing, loading };
 };
@@ -179,9 +213,9 @@ export const useCreateBooking = () => {
       setError(null);
 
       const roomId = getRoomId(roomType);
-      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      
-      const bookingData: Omit<BookingSubmission, 'id'> = {
+      const nights = eachDayOfInterval({ start: checkIn, end: checkOut }).length - 1;
+
+      const bookingData: BookingSubmission = {
         room_id: roomId,
         check_in: format(checkIn, 'yyyy-MM-dd'),
         check_out: format(checkOut, 'yyyy-MM-dd'),
@@ -196,38 +230,34 @@ export const useCreateBooking = () => {
         status: 'confirmed'
       };
 
-      console.log('🔄 Creating booking with data:', bookingData);
-
       const { data, error } = await supabase
         .from('bookings')
         .insert(bookingData)
-        .select('*')
+        .select()
         .single();
 
       if (error) throw error;
 
-      // Generate confirmation
-      const confirmation: BookingConfirmation = {
+      // 🆕 Generate confirmation number (not stored in database)
+      const confirmationNumber = `TSC-${Date.now().toString(36).toUpperCase()}`;
+
+      return {
         id: data.id,
-        confirmation_number: `TSC-${Date.now().toString(36).toUpperCase()}`,
+        confirmation_number: confirmationNumber,
         guest_name: data.guest_name,
         guest_email: data.guest_email,
-        room_name: 'Room', // This will be populated by the component
+        room_name: '', // Will be filled by caller
         check_in: data.check_in,
         check_out: data.check_out,
         total_nights: data.total_nights,
         total_price: data.total_price,
         guests_count: data.guests_count,
-        special_requests: data.special_requests,
-        status: data.status,
-        created_at: data.created_at
+        special_requests: data.special_requests || '',
+        status: data.status || 'confirmed',
+        created_at: data.created_at || new Date().toISOString()
       };
-
-      console.log('✅ Booking created successfully:', confirmation);
-      return confirmation;
-
     } catch (err) {
-      console.error('❌ Booking creation failed:', err);
+      console.error('Error creating booking:', err);
       setError(err instanceof Error ? err.message : 'Failed to create booking');
       return null;
     } finally {

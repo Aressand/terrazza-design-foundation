@@ -1,4 +1,4 @@
-// src/components/booking/BookingWidget.tsx - COMPLETELY FIXED
+// src/components/booking/BookingWidget.tsx - RIPRISTINATO UI ORIGINALE + Solo fix logica
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import {
 } from '@/hooks/useBooking';
 import { useRoomUnavailableDates } from '@/hooks/useRoomUnavailableDates';
 import type { RoomType } from '@/utils/roomMapping';
-import type { BookingFormData, BookingConfirmation } from '@/types/booking';
+import type { BookingFormData, BookingConfirmation, ConflictType } from '@/types/booking'; // 🆕 Added ConflictType
 
 interface BookingWidgetProps {
   roomType: RoomType;
@@ -28,6 +28,25 @@ interface BookingWidgetProps {
   presetCheckOut?: Date;
   presetGuests?: number;
 }
+
+// 🆕 SOLO QUESTA FUNZIONE è nuova per migliorare i messaggi di errore
+const generateConflictMessage = (conflicts: ConflictType[]): string => {
+  const bookingConflicts = conflicts.filter(c => c.type === 'booking');
+  const blockedConflicts = conflicts.filter(c => c.type === 'blocked');
+  
+  const messages: string[] = [];
+  
+  if (bookingConflicts.length > 0) {
+    messages.push(`${bookingConflicts.length} existing booking${bookingConflicts.length > 1 ? 's' : ''}`);
+  }
+  
+  if (blockedConflicts.length > 0) {
+    const blockedDates = blockedConflicts.map(c => 'date' in c ? c.date : '').filter(Boolean);
+    messages.push(`${blockedConflicts.length} blocked date${blockedConflicts.length > 1 ? 's' : ''} (${blockedDates.slice(0, 3).join(', ')}${blockedDates.length > 3 ? '...' : ''})`);
+  }
+  
+  return `Selected dates unavailable.`;
+};
 
 const BookingWidget: React.FC<BookingWidgetProps> = ({
   roomType,
@@ -58,7 +77,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
   const pricing = calculatePricing(checkIn, checkOut);
   const canBook = checkIn && checkOut && nights > 0 && !availabilityError && roomData && pricing;
 
-  // Check availability when dates change
+  // 🆕 AGGIORNATO: Check availability quando cambiano le date (ora con fix completo)
   useEffect(() => {
     const checkDatesAvailability = async () => {
       if (!checkIn || !checkOut || nights <= 0) {
@@ -70,17 +89,17 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         const result = await checkAvailability(roomType, checkIn, checkOut);
         
         if (!result.isAvailable) {
-          setAvailabilityError(
-            result.conflicts && result.conflicts.length > 0 
-              ? `Selected dates conflict with existing booking`
-              : 'Selected dates are not available'
-          );
+          const errorMessage = result.conflicts && result.conflicts.length > 0 
+            ? generateConflictMessage(result.conflicts)
+            : 'Selected dates are not available for booking.';
+          
+          setAvailabilityError(errorMessage);
         } else {
           setAvailabilityError(null);
         }
       } catch (error) {
-        console.error('Availability check failed:', error);
-        setAvailabilityError('Failed to check availability. Please try again.');
+        console.error('Error checking availability:', error);
+        setAvailabilityError('Unable to check availability. Please try again.');
       }
     };
 
@@ -92,7 +111,6 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     setIsBookingOpen(true);
   };
 
-  // ✅ FIXED: Correct BookingForm callback
   const handleBookingComplete = async (formData: BookingFormData) => {
     if (!checkIn || !checkOut || !pricing) return;
 
@@ -154,7 +172,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     );
   }
 
-  // Booking complete state
+  // ✅ UI ORIGINALE: Booking complete state
   if (isBookingComplete && bookingConfirmation) {
     return (
       <Card className={`${className} border-green-200 bg-green-50`}>
@@ -205,7 +223,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     <>
       <Card className={className}>
         <CardContent className="p-6">
-          {/* Header */}
+          {/* ✅ UI ORIGINALE: Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2">
               <h3 className="text-lg font-semibold">Book Your Stay</h3>
@@ -221,7 +239,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             </div>
           </div>
 
-          {/* Date Selection */}
+          {/* ✅ UI ORIGINALE: Date Selection */}
           <div className="space-y-4 mb-6">
             <BookingCalendar
               checkIn={checkIn}
@@ -257,7 +275,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             )}
           </div>
 
-          {/* Dynamic Pricing Display */}
+          {/* ✅ UI ORIGINALE: Dynamic Pricing Display */}
           {pricing && canBook && (
             <div className="mb-6 space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-stone-light">
@@ -280,7 +298,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             </div>
           )}
 
-          {/* Booking Button */}
+          {/* ✅ UI ORIGINALE: Booking Button */}
           <Button
             onClick={handleBookingStart}
             disabled={!canBook || checking}
@@ -312,7 +330,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         </CardContent>
       </Card>
 
-      {/* ✅ FIXED: Booking Form Dialog with correct props */}
+      {/* ✅ UI ORIGINALE: Booking Form Dialog */}
       <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
