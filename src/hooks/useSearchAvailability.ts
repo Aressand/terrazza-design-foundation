@@ -146,7 +146,7 @@ export const useSearchAvailability = ({ checkIn, checkOut, guests }: UseSearchAv
               .select('check_in, check_out, guests_count')
               .eq('room_id', room.id)
               .eq('status', 'confirmed')
-              .or(`check_in.lt.${searchParams.checkOutStr},check_out.gt.${searchParams.checkInStr}`);
+              .or(`and(check_in.lt.${searchParams.checkOutStr},check_out.gt.${searchParams.checkInStr})`);
 
             if (bookingError) throw bookingError;
 
