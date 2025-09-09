@@ -1,5 +1,4 @@
-// src/types/booking.ts - AGGIORNATO per supportare nuovi conflict types
-
+// src/types/booking.ts 
 export interface RoomData {
   id: string;
   name: string;
