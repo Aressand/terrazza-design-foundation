@@ -1,5 +1,4 @@
-// src/components/booking/BookingWidget.tsx - RIPRISTINATO UI ORIGINALE + Solo fix logica
-
+// src/components/booking/BookingWidget.tsx 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,7 @@ const generateConflictMessage = (conflicts: ConflictType[]): string => {
     messages.push(`${blockedConflicts.length} blocked date${blockedConflicts.length > 1 ? 's' : ''} (${blockedDates.slice(0, 3).join(', ')}${blockedDates.length > 3 ? '...' : ''})`);
   }
   
-  return `Selected dates unavailable.`;
+  return `Selected dates unavailable: ${messages.join(' and ')}.`;
 };
 
 const BookingWidget: React.FC<BookingWidgetProps> = ({
@@ -317,8 +316,6 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
               'Invalid Dates'
             ) : availabilityError ? (
               'Dates Unavailable'
-            ) : pricingLoading ? (
-              'Loading Prices...'
             ) : (
               `Reserve for €${pricing?.totalPrice || 0}`
             )}

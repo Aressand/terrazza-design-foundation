@@ -1,5 +1,4 @@
-// src/components/booking/BookingCalendar.tsx - ONLY ADDED weekStartsOn={1}
-
+// src/components/booking/BookingCalendar.tsx 
 import React, { useState } from 'react';
 import { format, addDays, differenceInDays, isAfter, isBefore, isWithinInterval } from "date-fns";
 import { CalendarIcon } from 'lucide-react';

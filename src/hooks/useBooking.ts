@@ -1,4 +1,4 @@
-// src/hooks/useBooking.ts - UPDATED with Dynamic Pricing + FIXED Availability Check
+// src/hooks/useBooking.ts 
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
