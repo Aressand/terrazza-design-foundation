@@ -114,17 +114,6 @@ export const useAvailabilityCheck = () => {
 
       const isAvailable = allConflicts.length === 0;
 
-      // 🆕 Enhanced logging for debugging
-      if (!isAvailable) {
-        console.log(`🚫 Availability check FAILED for room ${roomId} (${checkInStr} to ${checkOutStr})`);
-        console.log(`📅 Nights checked: ${stayDates.join(', ')}`);
-        console.log(`🔴 Booking conflicts: ${bookingConflicts?.length || 0}`);
-        console.log(`🔴 Blocked dates: ${availabilityConflicts?.length || 0}`);
-        console.log('🔍 All conflicts:', allConflicts);
-      } else {
-        console.log(`✅ Availability check PASSED for room ${roomId} (${checkInStr} to ${checkOutStr})`);
-      }
-
       return {
         isAvailable,
         conflicts: allConflicts

@@ -16,7 +16,7 @@ import {
 } from '@/hooks/useBooking';
 import { useRoomUnavailableDates } from '@/hooks/useRoomUnavailableDates';
 import type { RoomType } from '@/utils/roomMapping';
-import type { BookingFormData, BookingConfirmation, ConflictType } from '@/types/booking'; // 🆕 Added ConflictType
+import type { BookingFormData, BookingConfirmation, ConflictType } from '@/types/booking';
 
 interface BookingWidgetProps {
   roomType: RoomType;
@@ -28,7 +28,7 @@ interface BookingWidgetProps {
   presetGuests?: number;
 }
 
-// 🆕 SOLO QUESTA FUNZIONE è nuova per migliorare i messaggi di errore
+// Generate user-friendly conflict messages
 const generateConflictMessage = (conflicts: ConflictType[]): string => {
   const bookingConflicts = conflicts.filter(c => c.type === 'booking');
   const blockedConflicts = conflicts.filter(c => c.type === 'blocked');
@@ -66,7 +66,14 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
 
   // Hooks
   const { roomData, loading: roomLoading, error: roomError } = useRoomData(roomType);
-  const { unavailableDates, loading: unavailabilityLoading } = useRoomUnavailableDates(roomType);
+  
+  // 🔧 FIXED: Use correct destructuring from enhanced hook
+  const { 
+    trulyUnavailableDates, 
+    sameDayTurnoverDates, 
+    loading: unavailabilityLoading 
+  } = useRoomUnavailableDates(roomType);
+  
   const { checkAvailability, checking } = useAvailabilityCheck();
   const { createBooking, submitting, error: bookingError } = useCreateBooking();
   const { calculatePricing, loading: pricingLoading } = usePricingCalculation(roomType);
@@ -76,7 +83,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
   const pricing = calculatePricing(checkIn, checkOut);
   const canBook = checkIn && checkOut && nights > 0 && !availabilityError && roomData && pricing;
 
-  // 🆕 AGGIORNATO: Check availability quando cambiano le date (ora con fix completo)
+  // Check availability when dates change
   useEffect(() => {
     const checkDatesAvailability = async () => {
       if (!checkIn || !checkOut || nights <= 0) {
@@ -143,6 +150,15 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     setAvailabilityError(null);
   };
 
+  // Nel BookingWidget.tsx - aggiungi questo useEffect temporaneo
+useEffect(() => {
+  console.log('🔍 DEBUG Calendar Data:');
+  console.log('trulyUnavailableDates:', trulyUnavailableDates);
+  console.log('sameDayTurnoverDates:', sameDayTurnoverDates);
+  console.log('trulyUnavailableDates length:', trulyUnavailableDates?.length);
+  console.log('sameDayTurnoverDates length:', sameDayTurnoverDates?.length);
+}, [trulyUnavailableDates, sameDayTurnoverDates]);
+
   // Show loading state while room data or pricing data loads
   if (roomLoading || pricingLoading) {
     return (
@@ -171,7 +187,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     );
   }
 
-  // ✅ UI ORIGINALE: Booking complete state
+  // Booking complete state
   if (isBookingComplete && bookingConfirmation) {
     return (
       <Card className={`${className} border-green-200 bg-green-50`}>
@@ -222,7 +238,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
     <>
       <Card className={className}>
         <CardContent className="p-6">
-          {/* ✅ UI ORIGINALE: Header */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2">
               <h3 className="text-lg font-semibold">Book Your Stay</h3>
@@ -238,14 +254,16 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             </div>
           </div>
 
-          {/* ✅ UI ORIGINALE: Date Selection */}
+          {/* Date Selection */}
           <div className="space-y-4 mb-6">
+            {/* 🔧 FIXED: BookingCalendar with correct prop names */}
             <BookingCalendar
               checkIn={checkIn}
               checkOut={checkOut}
               onCheckInSelect={setCheckIn}
               onCheckOutSelect={setCheckOut}
-              unavailableDates={unavailableDates}
+              trulyUnavailableDates={trulyUnavailableDates}
+              sameDayTurnoverDates={sameDayTurnoverDates}
               minStay={1}
             />
             
@@ -257,8 +275,8 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
               </div>
             )}
 
-            {/* Unavailable dates loading */}
-            {unavailabilityLoading && !unavailableDates.length && (
+            {/* 🔧 FIXED: Loading check with correct array names */}
+            {unavailabilityLoading && !trulyUnavailableDates.length && !sameDayTurnoverDates.length && (
               <div className="flex items-center justify-center py-2">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 <span className="text-sm text-muted-foreground">Loading calendar availability...</span>
@@ -274,7 +292,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             )}
           </div>
 
-          {/* ✅ UI ORIGINALE: Dynamic Pricing Display */}
+          {/* Dynamic Pricing Display */}
           {pricing && canBook && (
             <div className="mb-6 space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-stone-light">
@@ -297,7 +315,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
             </div>
           )}
 
-          {/* ✅ UI ORIGINALE: Booking Button */}
+          {/* Booking Button */}
           <Button
             onClick={handleBookingStart}
             disabled={!canBook || checking}
@@ -327,7 +345,7 @@ const BookingWidget: React.FC<BookingWidgetProps> = ({
         </CardContent>
       </Card>
 
-      {/* ✅ UI ORIGINALE: Booking Form Dialog */}
+      {/* Booking Form Dialog */}
       <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
