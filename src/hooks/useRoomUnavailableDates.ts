@@ -1,22 +1,12 @@
-// ENHANCED: src/hooks/useRoomUnavailableDates.ts
+// src/hooks/useRoomUnavailableDates.ts
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getRoomId, type RoomType } from '@/utils/roomMapping';
 import { format, addMonths, eachDayOfInterval, parseISO } from 'date-fns';
 
-// 🆕 ENHANCED return type with separate date categories
-export interface UnavailableDatesResult {
-  trulyUnavailableDates: Date[];        // From bookings - red everywhere, not clickable
-  sameDayTurnoverDates: Date[];         // From room_availability blocks - allow same-day turnover
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-}
-
-export const useRoomUnavailableDates = (roomType: RoomType): UnavailableDatesResult => {
-  const [trulyUnavailableDates, setTrulyUnavailableDates] = useState<Date[]>([]);
-  const [sameDayTurnoverDates, setSameDayTurnoverDates] = useState<Date[]>([]);
+export const useRoomUnavailableDates = (roomType: RoomType) => {
+  const [unavailableDates, setUnavailableDates] = useState<Date[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +28,7 @@ export const useRoomUnavailableDates = (roomType: RoomType): UnavailableDatesRes
       setError(null);
 
       try {
-        // 🆕 STEP 1: Fetch confirmed bookings (TRULY unavailable - red everywhere)
+        // Fetch confirmed bookings for the room in the date range
         const { data: bookings, error: bookingsError } = await supabase
           .from('bookings')
           .select('check_in, check_out')
@@ -49,7 +39,7 @@ export const useRoomUnavailableDates = (roomType: RoomType): UnavailableDatesRes
 
         if (bookingsError) throw bookingsError;
 
-        // 🆕 STEP 2: Fetch manual/iCal availability blocks (SAME-DAY TURNOVER allowed)
+        // Fetch manual availability blocks for the room in the date range  
         const { data: availabilityBlocks, error: availabilityError } = await supabase
           .from('room_availability')
           .select('date')
@@ -60,62 +50,53 @@ export const useRoomUnavailableDates = (roomType: RoomType): UnavailableDatesRes
 
         if (availabilityError) throw availabilityError;
 
-        // 🆕 STEP 3: Process booking dates (TRULY unavailable)
-        const trulyUnavailableSet = new Set<string>();
+        const unavailableDatesSet = new Set<string>();
+
+        // Add all dates from confirmed bookings
         if (bookings) {
           for (const booking of bookings) {
             const checkIn = parseISO(booking.check_in);
             const checkOut = parseISO(booking.check_out);
             
-            // Include all dates in the booking range (check-in to check-out)
-            const bookingDates = eachDayOfInterval({ start: checkIn, end: checkOut });
+            // 🚀 COMPLETE SAME-DAY TURNOVER: Include only overnight nights (exclude both check-in and checkout days)
+            // This allows: checkout morning + check-in afternoon on SAME DAY for different bookings
+            const bookingDates = eachDayOfInterval({ start: checkIn, end: checkOut })
+              .slice(1, -1); // Remove BOTH check-in AND checkout day for full same-day turnover
+              
             bookingDates.forEach(date => {
-              trulyUnavailableSet.add(format(date, 'yyyy-MM-dd'));
+              unavailableDatesSet.add(format(date, 'yyyy-MM-dd'));
             });
           }
         }
 
-        // 🆕 STEP 4: Process availability blocks (SAME-DAY TURNOVER allowed)
-        const sameDayTurnoverSet = new Set<string>();
+        // Add manually blocked dates
         if (availabilityBlocks) {
           availabilityBlocks.forEach(block => {
-            sameDayTurnoverSet.add(block.date);
+            unavailableDatesSet.add(block.date);
           });
         }
 
-        // 🆕 STEP 5: Convert to Date objects and sort
-        const trulyUnavailableDatesArray = Array.from(trulyUnavailableSet)
+        // Convert to Date objects
+        const unavailableDatesArray = Array.from(unavailableDatesSet)
           .map(dateStr => parseISO(dateStr))
           .sort((a, b) => a.getTime() - b.getTime());
 
-        const sameDayTurnoverDatesArray = Array.from(sameDayTurnoverSet)
-          .map(dateStr => parseISO(dateStr))
-          .sort((a, b) => a.getTime() - b.getTime());
-
-        // 🆕 STEP 6: Set state with separate arrays
-        setTrulyUnavailableDates(trulyUnavailableDatesArray);
-        setSameDayTurnoverDates(sameDayTurnoverDatesArray);
-
-        console.log(`📅 Room ${roomType} unavailable dates:
-          - Truly unavailable (bookings): ${trulyUnavailableDatesArray.length} dates
-          - Same-day turnover allowed (blocks): ${sameDayTurnoverDatesArray.length} dates`);
+        setUnavailableDates(unavailableDatesArray);
 
       } catch (err) {
         console.error('Error fetching unavailable dates:', err);
         setError(err instanceof Error ? err.message : 'Failed to load unavailable dates');
-        setTrulyUnavailableDates([]);
-        setSameDayTurnoverDates([]);
+        setUnavailableDates([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUnavailableDates();
-  }, [roomId, dateRange.start, dateRange.end, roomType]);
+  }, [roomId, dateRange.start, dateRange.end]);
 
   return {
-    trulyUnavailableDates,
-    sameDayTurnoverDates,
+    unavailableDates,
     loading,
     error,
     refetch: () => {
