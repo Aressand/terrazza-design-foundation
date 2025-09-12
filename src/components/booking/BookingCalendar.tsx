@@ -185,24 +185,6 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
           </p>
         </div>
       )}
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground justify-center">
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-sage rounded-full"></div>
-          <span>Available</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-destructive rounded-full opacity-50"></div>
-          <span>Unavailable</span>
-        </div>
-        {checkIn && checkOut && (
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#e6e8d9' }}></div>
-            <span>Selected period</span>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
