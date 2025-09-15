@@ -2,13 +2,13 @@ import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
-    <footer className="bg-sage-light border-t border-sage/20 mt-auto">
+    <footer className="border-t border-sage/20 mt-auto" style={{ backgroundColor: '#975635' }}>
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Contact Column */}
           <div>
-            <h3 className="text-stone-dark font-medium text-lg mb-4">Contact</h3>
-            <div className="space-y-2 text-stone-dark/80">
+            <h3 className="font-medium text-lg mb-4" style={{ color: '#f9f5f0' }}>Contact</h3>
+            <div className="space-y-2" style={{ color: '#f9f5f0' }}>
               <p className="flex items-center gap-2">
                 <span>📍</span>
                 Assisi, Italy
@@ -26,29 +26,33 @@ const Footer = () => {
 
           {/* Rooms Column */}
           <div>
-            <h3 className="text-stone-dark font-medium text-lg mb-4">Our Accommodations</h3>
+            <h3 className="font-medium text-lg mb-4" style={{ color: '#f9f5f0' }}>Our Accommodations</h3>
             <div className="space-y-2">
               <Link 
                 to="/rooms/garden-room" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Garden Room Sanctuary
               </Link>
               <Link 
                 to="/rooms/stone-vault-apartment" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Historic Stone Vault
               </Link>
               <Link 
                 to="/rooms/terrace-apartment" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Panoramic Terrace
               </Link>
               <Link 
                 to="/rooms/modern-apartment" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Contemporary Luxury
               </Link>
@@ -57,29 +61,33 @@ const Footer = () => {
 
           {/* Legal Column */}
           <div>
-            <h3 className="text-stone-dark font-medium text-lg mb-4">Information</h3>
+            <h3 className="font-medium text-lg mb-4" style={{ color: '#f9f5f0' }}>Information</h3>
             <div className="space-y-2">
               <Link 
                 to="/about" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 About Us
               </Link>
               <Link 
                 to="/contact" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Contact
               </Link>
               <a 
                 href="#" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Privacy Policy
               </a>
               <a 
                 href="#" 
-                className="block text-stone-dark/80 hover:text-stone-dark hover:underline transition-colors"
+                className="block hover:underline transition-colors"
+                style={{ color: '#f9f5f0' }}
               >
                 Terms of Service
               </a>
@@ -88,8 +96,8 @@ const Footer = () => {
         </div>
 
         {/* Bottom Row */}
-        <div className="mt-8 pt-8 border-t border-sage/20">
-          <p className="text-center text-stone-dark/60 text-sm">
+        <div className="mt-8 pt-8 border-t border-white/20">
+          <p className="text-center text-sm" style={{ color: '#f9f5f0' }}>
             © 2024 Assisi B&B - All rights reserved
           </p>
         </div>
