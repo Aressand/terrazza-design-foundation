@@ -39,9 +39,9 @@ const ICalSyncTester = () => {
   const [testResults, setTestResults] = useState<string[]>([]);
 
   const { 
-    syncCalendar, 
-    clearSyncData, 
-    validateICalUrl,
+    syncAllCalendars,
+    clearAvailabilityData, 
+    downloadICalData,
     loading, 
     error, 
     progress,
@@ -63,8 +63,8 @@ const ICalSyncTester = () => {
 
     addTestResult(`Validating URL: ${url}`);
     try {
-      const isValid = await validateICalUrl(url);
-      addTestResult(`URL validation: ${isValid ? 'VALID' : 'INVALID'}`, isValid ? 'success' : 'error');
+      await downloadICalData(url);
+      addTestResult(`URL validation: VALID`, 'success');
     } catch (err) {
       addTestResult(`Validation failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
@@ -89,14 +89,21 @@ const ICalSyncTester = () => {
     addTestResult(`Source: ${syncSource}`);
 
     try {
-      const result = await syncCalendar(selectedRoom, url, syncSource);
+      const result = await syncAllCalendars();
       
       if (result.success) {
         addTestResult(`🎉 SYNC SUCCESS!`, 'success');
-        addTestResult(`Events processed: ${result.eventsProcessed}`, 'success');
-        addTestResult(`Dates blocked: ${result.datesBlocked}`, 'success');
+        const totalEvents = result.results.reduce((sum, r) => sum + r.eventsProcessed, 0);
+        const totalDates = result.results.reduce((sum, r) => sum + r.datesBlocked, 0);
+        addTestResult(`Events processed: ${totalEvents}`, 'success');
+        addTestResult(`Dates blocked: ${totalDates}`, 'success');
+        addTestResult(`Successful syncs: ${result.successfulSyncs}/${result.totalConfigs}`, 'success');
       } else {
-        addTestResult(`Sync failed: ${result.errors.join(', ')}`, 'error');
+        addTestResult(`Sync failed. Failed syncs: ${result.failedSyncs}/${result.totalConfigs}`, 'error');
+        const errors = result.results.filter(r => !r.success).map(r => r.error).filter(Boolean);
+        if (errors.length > 0) {
+          addTestResult(`Errors: ${errors.join(', ')}`, 'error');
+        }
       }
     } catch (err) {
       addTestResult(`Sync exception: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -111,7 +118,7 @@ const ICalSyncTester = () => {
 
     addTestResult(`Clearing sync data for room: ${selectedRoom}`);
     try {
-      await clearSyncData(selectedRoom);
+      await clearAvailabilityData(selectedRoom);
       addTestResult('✅ Data cleared successfully', 'success');
     } catch (err) {
       addTestResult(`Clear failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');

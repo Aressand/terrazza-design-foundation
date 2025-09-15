@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import SEOHead from "@/components/SEOHead";
 import BookingWidget from "@/components/booking/BookingWidget";
 import MobileOptimizedImage from "@/components/MobileOptimizedImage";
+import Footer from "@/components/Footer";
 
 // Import images
 import gardenRoomHero from "@/assets/garden-room.jpg";
@@ -224,6 +225,7 @@ const GardenRoom = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </>
   );
 };

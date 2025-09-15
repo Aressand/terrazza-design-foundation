@@ -5,6 +5,7 @@ import MobileContactActions from "@/components/MobileContactActions";
 import HeroSection from "@/components/HeroSection";
 import RoomsPreview from "@/components/RoomsPreview";
 import CompetitiveAdvantages from "@/components/CompetitiveAdvantages";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
@@ -110,6 +111,7 @@ const Index = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </>
   );
 };

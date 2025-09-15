@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSearchAvailability } from "@/hooks/useSearchAvailability";
+import Footer from "@/components/Footer";
 
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
@@ -531,6 +532,7 @@ const SearchResults = () => {
           </div>
         </main>
       </div>
+      <Footer />
     </>
   );
 };

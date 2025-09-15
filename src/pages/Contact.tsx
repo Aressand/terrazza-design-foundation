@@ -15,6 +15,7 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
+import Footer from "@/components/Footer";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -439,6 +440,7 @@ const Contact = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </>
   );
 };
