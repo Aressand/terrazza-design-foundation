@@ -3,6 +3,7 @@ import SEOHead from "@/components/SEOHead";
 import MobileContactActions from "@/components/MobileContactActions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, Shield, Heart, Phone, MapPin, Mail, Users } from "lucide-react";
+import Footer from "@/components/Footer";
 
 // Placeholder image - you would replace with actual owner/property image
 import assisiHeroBg from "@/assets/assisi-hero-bg.jpg";
@@ -166,6 +167,7 @@ const About = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </>
   );
 };
