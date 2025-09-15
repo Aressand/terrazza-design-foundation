@@ -1,4 +1,4 @@
-// src/components/booking/BookingCalendar.tsx 
+// src/components/booking/BookingCalendar.tsx - IMPROVED: Continuous Date Selection
 import React, { useState } from 'react';
 import { format, addDays, differenceInDays, isAfter, isBefore, isWithinInterval } from "date-fns";
 import { CalendarIcon } from 'lucide-react';
@@ -30,8 +30,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
   minStay = 1,
   className
 }) => {
-  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
-  const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<'check-in' | 'check-out'>('check-in');
 
   const isDateUnavailable = (date: Date) => {
     return unavailableDates.some(unavailableDate => 
@@ -44,55 +44,111 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
     return isWithinInterval(date, { start: checkIn, end: checkOut });
   };
 
-  const handleCheckInSelect = (date: Date | undefined) => {
-    onCheckInSelect(date);
-    if (date && checkOut && isBefore(checkOut, addDays(date, minStay))) {
-      onCheckOutSelect(addDays(date, minStay));
-    }
-    setIsCheckInOpen(false);
+  const isDateInTentativeRange = (date: Date, hoverDate: Date | null) => {
+    if (!checkIn || !hoverDate || checkOut) return false;
+    const start = isBefore(checkIn, hoverDate) ? checkIn : hoverDate;
+    const end = isAfter(checkIn, hoverDate) ? checkIn : hoverDate;
+    return isWithinInterval(date, { start, end });
   };
 
-  const handleCheckOutSelect = (date: Date | undefined) => {
-    onCheckOutSelect(date);
-    setIsCheckOutOpen(false);
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+
+    if (selectionMode === 'check-in' || !checkIn) {
+      // First click: Set check-in
+      onCheckInSelect(date);
+      onCheckOutSelect(undefined); // Clear checkout
+      setSelectionMode('check-out');
+      
+      // Calendar stays open for checkout selection
+    } else if (selectionMode === 'check-out') {
+      // Second click: Set check-out
+      if (isBefore(date, checkIn)) {
+        // If selected date is before check-in, swap them
+        onCheckInSelect(date);
+        onCheckOutSelect(checkIn);
+      } else if (date <= addDays(checkIn, minStay - 1)) {
+        // If too close, set minimum stay
+        onCheckOutSelect(addDays(checkIn, minStay));
+      } else {
+        onCheckOutSelect(date);
+      }
+      
+      // Close calendar after both dates are selected
+      setIsOpen(false);
+      setSelectionMode('check-in');
+    }
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setSelectionMode('check-in');
+    }
+  };
+
+  const handleClearDates = () => {
+    onCheckInSelect(undefined);
+    onCheckOutSelect(undefined);
+    setSelectionMode('check-in');
   };
 
   const nights = checkIn && checkOut ? differenceInDays(checkOut, checkIn) : 0;
 
+  const getButtonText = () => {
+    if (checkIn && checkOut) {
+      return `${format(checkIn, "MMM dd")} - ${format(checkOut, "MMM dd")}`;
+    } else if (checkIn) {
+      return `${format(checkIn, "MMM dd")} - Select checkout`;
+    } else {
+      return "Select dates";
+    }
+  };
+
+  const getButtonVariant = (): "default" | "outline" | "destructive" | "secondary" | "ghost" | "link" | "terracotta" | "sage-outline" | "stone" => {
+    if (checkIn && !checkOut) return "outline"; // Partial selection
+    return "outline";
+  };
+
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Check-in Date */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">
-            Check-in
-          </label>
-          <Popover open={isCheckInOpen} onOpenChange={setIsCheckInOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-12 border-2 hover:border-sage focus:border-sage transition-colors",
-                  !checkIn && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon size={18} className="mr-3 text-sage" />
-                {checkIn ? format(checkIn, "PPP") : "Select check-in date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-50" align="start">
+      {/* Single Date Range Selector */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground">
+          {selectionMode === 'check-in' ? 'Select check-in date' : 'Select check-out date'}
+        </label>
+        
+        <Popover open={isOpen} onOpenChange={handleOpenChange}>
+          <PopoverTrigger asChild>
+            <Button
+              variant={getButtonVariant()}
+              className={cn(
+                "w-full justify-start text-left font-normal h-12 border-2 hover:border-sage focus:border-sage transition-colors",
+                !checkIn && "text-muted-foreground",
+                checkIn && !checkOut && "border-sage bg-sage/5" // Highlight during selection
+              )}
+            >
+              <CalendarIcon size={18} className="mr-3 text-sage" />
+              {getButtonText()}
+            </Button>
+          </PopoverTrigger>
+          
+          <PopoverContent className="w-auto p-0 z-50" align="start">
+            <div className="p-3">
               <Calendar
                 mode="single"
-                selected={checkIn}
-                onSelect={handleCheckInSelect}
+                selected={selectionMode === 'check-in' ? checkIn : checkOut}
+                onSelect={handleDateSelect}
                 disabled={(date) => 
                   date < new Date() || 
                   isDateUnavailable(date) ||
-                  date > addDays(new Date(), 365)
+                  date > addDays(new Date(), 365) ||
+                  (selectionMode === 'check-out' && checkIn && date <= checkIn) ||
+                  (selectionMode === 'check-out' && checkIn && date < addDays(checkIn, minStay))
                 }
                 weekStartsOn={1}
                 initialFocus
-                className="p-3 pointer-events-auto"
+                className="pointer-events-auto"
                 modifiers={{
                   unavailable: unavailableDates,
                   inRange: isDateInRange
@@ -109,67 +165,23 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({
                   }
                 }}
               />
-            </PopoverContent>
-          </Popover>
-        </div>
 
-        {/* Check-out Date */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">
-            Check-out
-          </label>
-          <Popover open={isCheckOutOpen} onOpenChange={setIsCheckOutOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-12 border-2 hover:border-sage focus:border-sage transition-colors",
-                  !checkOut && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon size={18} className="mr-3 text-sage" />
-                {checkOut ? format(checkOut, "PPP") : "Select check-out date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-50" align="start">
-              <Calendar
-                mode="single"
-                selected={checkOut}
-                onSelect={handleCheckOutSelect}
-                disabled={(date) => 
-                  date < new Date() || 
-                  (checkIn && date <= checkIn) ||
-                  (checkIn && date < addDays(checkIn, minStay)) ||
-                  isDateUnavailable(date) ||
-                  date > addDays(new Date(), 365)
-                }
-                weekStartsOn={1}
-                initialFocus
-                className="p-3 pointer-events-auto"
-                classNames={{
-                  day_today: "bg-transparent text-foreground font-normal", // 🔴 FIX: Remove today highlighting
-                  day_selected: "bg-transparent text-foreground font-normal", // 🔴 FIX: Remove check-in transparency in check-out calendar
-                  day: "hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
-                }}
-                modifiers={{
-                  unavailable: unavailableDates,
-                  inRange: isDateInRange
-                }}
-                modifiersStyles={{
-                  unavailable: { 
-                    color: 'hsl(var(--destructive))',
-                    textDecoration: 'line-through',
-                    backgroundColor: 'hsl(var(--destructive) / 0.1)',
-                    opacity: 0.5
-                  },
-                  inRange: {
-                    backgroundColor: '#e6e8d9'
-                  }
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+              {/* Action Buttons */}
+              {(checkIn || checkOut) && (
+                <div className="mt-3">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleClearDates}
+                    className="text-muted-foreground hover:text-destructive w-full"
+                  >
+                    Clear dates
+                  </Button>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Nights Display */}

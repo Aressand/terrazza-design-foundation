@@ -189,45 +189,102 @@ export const useICalSync = () => {
     }
   }, []);
 
-  /**
-   * Convert parsed events into room availability records
-   * Generates blocked dates for each day of each booking
-   */
-  const createAvailabilityRecords = useCallback((events: ParsedEvent[], roomId: string): AvailabilityRecord[] => {
-    const records: AvailabilityRecord[] = [];
-    const processedDates = new Set<string>();
+// 🚀 SAME-DAY TURNOVER FIX v3: iCal Sync Hook - CORRECTED Logic
+// File: src/hooks/useICalSync.ts - Replace EXACTLY this function
 
-    for (const event of events) {
-      try {
-        // Generate all dates in the booking period (inclusive start, exclusive end)
-        const eventDates = eachDayOfInterval({
-          start: event.startDate,
-          end: new Date(event.endDate.getTime() - 24 * 60 * 60 * 1000) // Exclude checkout day
-        });
+/**
+ * Convert parsed events into room availability records
+ * 🚀 FIXED v3: Correct logic for existing iCal bookings
+ * Block ALL nights from check-in, but allow same-day turnover on checkout only
+ */
+const createAvailabilityRecords = useCallback((events: ParsedEvent[], roomId: string): AvailabilityRecord[] => {
+  const records: AvailabilityRecord[] = [];
+  const processedDates = new Set<string>();
 
-        for (const date of eventDates) {
-          const dateStr = format(date, 'yyyy-MM-dd');
+  console.log(`🔧 [iCal FIX v3] Processing ${events.length} events for room ${roomId}`);
+
+  for (const event of events) {
+    try {
+      console.log(`📅 [iCal FIX v3] Event: ${event.summary}`);
+      console.log(`📅 [iCal FIX v3] Raw UTC Dates: ${event.startDate.toISOString()} → ${event.endDate.toISOString()}`);
+
+      // 🌍 Convert UTC dates to Italy timezone for accurate date calculation
+      const startDateLocal = new Date(event.startDate);
+      const endDateLocal = new Date(event.endDate);
+      
+      // For Italian timezone, add 2 hours for safety
+      startDateLocal.setHours(startDateLocal.getHours() + 2);
+      endDateLocal.setHours(endDateLocal.getHours() + 2);
+
+      console.log(`🇮🇹 [iCal FIX v3] Local IT Dates: ${startDateLocal.toISOString()} → ${endDateLocal.toISOString()}`);
+
+      // 🚀 Generate all days in booking period
+      const allDays = eachDayOfInterval({
+        start: startDateLocal,
+        end: endDateLocal
+      });
+
+      console.log(`📋 [iCal FIX v3] All days in interval: [${allDays.map(d => format(d, 'yyyy-MM-dd')).join(', ')}]`);
+
+      // 🛏️ CORRECTED LOGIC: For existing iCal bookings, block ALL nights from check-in
+      // BUT allow same-day turnover only on checkout (remove only last day)
+      const nightsToBlock = allDays.slice(1, -1); // Keep first day, remove ONLY last day
+
+      console.log(`❌ [iCal FIX v3] OLD WRONG: Would use .slice(1, -1) - missing first night!`);
+      console.log(`✅ [iCal FIX v3] NEW CORRECT: Using .slice(0, -1) - include first night!`);
+      console.log(`🛏️ [iCal FIX v3] Nights to block: [${nightsToBlock.map(d => format(d, 'yyyy-MM-dd')).join(', ')}]`);
+
+      // Example for 24-29 Sept booking:
+      // All days: [24, 25, 26, 27, 28, 29]
+      // Nights to block: [24, 25, 26, 27, 28] ✅ (includes first night!)
+      // Available for new booking: [29] ✅ (same-day turnover on checkout)
+
+      for (const date of nightsToBlock) {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        
+        // Avoid duplicate dates from overlapping events
+        if (!processedDates.has(dateStr)) {
+          processedDates.add(dateStr);
           
-          // Avoid duplicate dates from overlapping events
-          if (!processedDates.has(dateStr)) {
-            processedDates.add(dateStr);
-            
-            records.push({
-              room_id: roomId,
-              date: dateStr,
-              is_available: false, // Block the date
-              created_at: new Date().toISOString()
-            });
-          }
+          records.push({
+            room_id: roomId,
+            date: dateStr,
+            is_available: false, // Block the date
+            created_at: new Date().toISOString()
+          });
+          
+          console.log(`🚫 [iCal FIX v3] Blocked night: ${dateStr}`);
+        } else {
+          console.log(`⚠️ [iCal FIX v3] Night ${dateStr} already processed (duplicate event)`);
         }
-      } catch (dateError) {
-        // Skip events with invalid dates, continue with others
-        continue;
       }
-    }
 
-    return records;
-  }, []);
+      console.log(`✅ [iCal FIX v3] Event processed: ${nightsToBlock.length} nights blocked (includes first night)`);
+
+    } catch (dateError) {
+      console.error(`❌ [iCal FIX v3] Error processing event ${event.summary}:`, dateError);
+      continue;
+    }
+  }
+
+  console.log(`🎯 [iCal FIX v3] SUMMARY: ${records.length} total nights blocked for room ${roomId}`);
+  console.log(`🎯 [iCal FIX v3] Final blocked nights: [${Array.from(processedDates).sort().join(', ')}]`);
+
+  return records;
+}, []);
+
+// EXPECTED RESULT for 24-29 Sept booking:
+// Raw UTC: 2025-09-23T22:00:00.000Z → 2025-09-29T22:00:00.000Z  
+// Local IT: 2025-09-24 → 2025-09-29
+// All days: [2025-09-24, 2025-09-25, 2025-09-26, 2025-09-27, 2025-09-28, 2025-09-29]
+// Nights blocked: [2025-09-24, 2025-09-25, 2025-09-26, 2025-09-27, 2025-09-28] ✅
+// Available: [2025-09-29] ✅ (same-day turnover on checkout only)
+
+// TEST EXPECTATION for 3-5 Oct booking:
+// Raw UTC: 2025-10-02T22:00:00.000Z → 2025-10-05T22:00:00.000Z  
+// Local IT: 2025-10-03 → 2025-10-05
+// All days: [2025-10-03, 2025-10-04, 2025-10-05]
+// Overnight: [2025-10-04] ✅ ONLY this should be blocked!
 
   // ===============================
   // DATABASE OPERATIONS

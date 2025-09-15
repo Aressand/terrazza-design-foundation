@@ -321,21 +321,46 @@ function createAvailabilityRecords(events: ParsedEvent[], roomId: string): Avail
   const processedDates = new Set<string>()
 
   for (const event of events) {
-    const start = new Date(event.startDate)
-    const end = new Date(event.endDate.getTime() - 24 * 60 * 60 * 1000) // Exclude checkout day
-    
-    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-      const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
+    try {
+      // 🌍 Convert UTC dates to Italy timezone for accurate date calculation
+      const startDateLocal = new Date(event.startDate)
+      const endDateLocal = new Date(event.endDate)
       
-      if (!processedDates.has(dateStr)) {
-        processedDates.add(dateStr)
-        records.push({
-          room_id: roomId,
-          date: dateStr,
-          is_available: false,
-          created_at: new Date().toISOString()
-        })
+      // For Italian timezone, add 2 hours for safety
+      startDateLocal.setHours(startDateLocal.getHours() + 2)
+      endDateLocal.setHours(endDateLocal.getHours() + 2)
+
+      // 🚀 Generate all days in booking period using eachDayOfInterval equivalent
+      const allDays: Date[] = []
+      const currentDate = new Date(startDateLocal)
+      
+      while (currentDate <= endDateLocal) {
+        allDays.push(new Date(currentDate))
+        currentDate.setDate(currentDate.getDate() + 1)
       }
+
+      // 🎯 CORRECT LOGIC: Block only intermediate dates (slice(1, -1) equivalent)
+      // This allows same-day turnover on BOTH check-in and checkout days
+      const intermediateDates = allDays.slice(1, -1)
+
+      // Process intermediate dates only
+      for (const date of intermediateDates) {
+        const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD format
+        
+        if (!processedDates.has(dateStr)) {
+          processedDates.add(dateStr)
+          records.push({
+            room_id: roomId,
+            date: dateStr,
+            is_available: false,
+            created_at: new Date().toISOString()
+          })
+        }
+      }
+
+    } catch (dateError) {
+      // Skip events with invalid dates, continue with others
+      continue
     }
   }
 
