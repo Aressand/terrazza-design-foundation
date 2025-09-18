@@ -189,34 +189,37 @@ export const useICalSync = () => {
     }
   }, []);
 
-// 🚀 SAME-DAY TURNOVER FIX v3: iCal Sync Hook - CORRECTED Logic
-// File: src/hooks/useICalSync.ts - Replace EXACTLY this function
-
-/**
- * Convert parsed events into room availability records
- * 🚀 FIXED v3: Correct logic for existing iCal bookings
- * Block ALL nights from check-in, but allow same-day turnover on checkout only
- */
 const createAvailabilityRecords = useCallback((events: ParsedEvent[], roomId: string): AvailabilityRecord[] => {
   const records: AvailabilityRecord[] = [];
   const processedDates = new Set<string>();
 
-  console.log(`🔧 [iCal FIX v3] Processing ${events.length} events for room ${roomId}`);
+  console.log(`🔧 [iCal FIX v2] Processing ${events.length} events for room ${roomId}`);
 
   for (const event of events) {
     try {
-      console.log(`📅 [iCal FIX v3] Event: ${event.summary}`);
-      console.log(`📅 [iCal FIX v3] Raw UTC Dates: ${event.startDate.toISOString()} → ${event.endDate.toISOString()}`);
+      console.log(`📅 [DEBUG] Raw event dates:`);
+      console.log(`  - startDate type:`, typeof event.startDate);
+      console.log(`  - startDate value:`, event.startDate);
+      console.log(`  - endDate type:`, typeof event.endDate);  
+      console.log(`  - endDate value:`, event.endDate);
 
       // 🌍 Convert UTC dates to Italy timezone for accurate date calculation
       const startDateLocal = new Date(event.startDate);
       const endDateLocal = new Date(event.endDate);
+
+      console.log(`🕐 [DEBUG] After new Date():`);
+      console.log(`  - startDateLocal:`, startDateLocal.toISOString());
+      console.log(`  - endDateLocal:`, endDateLocal.toISOString());
       
       // For Italian timezone, add 2 hours for safety
       startDateLocal.setHours(startDateLocal.getHours() + 2);
       endDateLocal.setHours(endDateLocal.getHours() + 2);
 
-      console.log(`🇮🇹 [iCal FIX v3] Local IT Dates: ${startDateLocal.toISOString()} → ${endDateLocal.toISOString()}`);
+      console.log(`🇮🇹 [DEBUG] After +2 hours:`);
+      console.log(`  - startDateLocal:`, startDateLocal.toISOString());
+      console.log(`  - endDateLocal:`, endDateLocal.toISOString());
+
+      console.log(`🇮🇹 [iCal FIX v2] Local IT Dates: ${startDateLocal.toISOString()} → ${endDateLocal.toISOString()}`);
 
       // 🚀 Generate all days in booking period
       const allDays = eachDayOfInterval({
@@ -224,22 +227,23 @@ const createAvailabilityRecords = useCallback((events: ParsedEvent[], roomId: st
         end: endDateLocal
       });
 
-      console.log(`📋 [iCal FIX v3] All days in interval: [${allDays.map(d => format(d, 'yyyy-MM-dd')).join(', ')}]`);
+      console.log(`📋 [iCal FIX v2] All days in interval: [${allDays.map(d => format(d, 'yyyy-MM-dd')).join(', ')}]`);
 
-      // 🛏️ CORRECTED LOGIC: For existing iCal bookings, block ALL nights from check-in
-      // BUT allow same-day turnover only on checkout (remove only last day)
-      const nightsToBlock = allDays.slice(1, -1); // Keep first day, remove ONLY last day
+      // 🎯 CORRECT LOGIC: Block only intermediate nights (slice(1, -1))
+      // This allows same-day turnover on BOTH check-in and checkout days
+      // The system will prevent new check-ins on dates with blocked subsequent nights
+      const intermediateDates = allDays.slice(1, -1);
 
-      console.log(`❌ [iCal FIX v3] OLD WRONG: Would use .slice(1, -1) - missing first night!`);
-      console.log(`✅ [iCal FIX v3] NEW CORRECT: Using .slice(0, -1) - include first night!`);
-      console.log(`🛏️ [iCal FIX v3] Nights to block: [${nightsToBlock.map(d => format(d, 'yyyy-MM-dd')).join(', ')}]`);
+      console.log(`🏠 [iCal FIX v2] Check-in date: OPEN in DB (but protected by system logic)`);
+      console.log(`🏠 [iCal FIX v2] Checkout date: OPEN in DB (available for new check-ins)`);
+      console.log(`🚫 [iCal FIX v2] Intermediate nights to block: [${intermediateDates.map(d => format(d, 'yyyy-MM-dd')).join(', ')}]`);
 
       // Example for 24-29 Sept booking:
       // All days: [24, 25, 26, 27, 28, 29]
-      // Nights to block: [24, 25, 26, 27, 28] ✅ (includes first night!)
-      // Available for new booking: [29] ✅ (same-day turnover on checkout)
+      // Block only: [25, 26, 27, 28] ✅ (intermediate nights)
+      // Keep open: [24] (for checkout only) + [29] (for new check-ins)
 
-      for (const date of nightsToBlock) {
+      for (const date of intermediateDates) {
         const dateStr = format(date, 'yyyy-MM-dd');
         
         // Avoid duplicate dates from overlapping events
@@ -253,22 +257,23 @@ const createAvailabilityRecords = useCallback((events: ParsedEvent[], roomId: st
             created_at: new Date().toISOString()
           });
           
-          console.log(`🚫 [iCal FIX v3] Blocked night: ${dateStr}`);
+          console.log(`🚫 [iCal FIX v2] Blocked intermediate night: ${dateStr}`);
         } else {
-          console.log(`⚠️ [iCal FIX v3] Night ${dateStr} already processed (duplicate event)`);
+          console.log(`⚠️ [iCal FIX v2] Night ${dateStr} already processed (duplicate event)`);
         }
       }
 
-      console.log(`✅ [iCal FIX v3] Event processed: ${nightsToBlock.length} nights blocked (includes first night)`);
+      console.log(`✅ [iCal FIX v2] Event processed: ${intermediateDates.length} intermediate nights blocked`);
+      console.log(`🎯 [iCal FIX v2] System intelligence: Check-in prevented on ${format(startDateLocal, 'yyyy-MM-dd')} due to blocked subsequent nights`);
 
     } catch (dateError) {
-      console.error(`❌ [iCal FIX v3] Error processing event ${event.summary}:`, dateError);
+      console.error(`❌ [iCal FIX v2] Error processing event ${event.summary}:`, dateError);
       continue;
     }
   }
 
-  console.log(`🎯 [iCal FIX v3] SUMMARY: ${records.length} total nights blocked for room ${roomId}`);
-  console.log(`🎯 [iCal FIX v3] Final blocked nights: [${Array.from(processedDates).sort().join(', ')}]`);
+  console.log(`🎯 [iCal FIX v2] SUMMARY: ${records.length} intermediate nights blocked for room ${roomId}`);
+  console.log(`🎯 [iCal FIX v2] Blocked intermediate nights: [${Array.from(processedDates).sort().join(', ')}]`);
 
   return records;
 }, []);
