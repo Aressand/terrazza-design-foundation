@@ -322,15 +322,14 @@ function createAvailabilityRecords(events: ParsedEvent[], roomId: string): Avail
 
   for (const event of events) {
     try {
-      // 🌍 Convert UTC dates to Italy timezone for accurate date calculation
+      // Convert UTC dates to Italy timezone for accurate date calculation
       const startDateLocal = new Date(event.startDate)
       const endDateLocal = new Date(event.endDate)
       
-      // For Italian timezone, add 2 hours for safety
       startDateLocal.setHours(startDateLocal.getHours() + 2)
       endDateLocal.setHours(endDateLocal.getHours() + 2)
 
-      // 🚀 Generate all days in booking period using eachDayOfInterval equivalent
+      // Generate all days in booking period
       const allDays: Date[] = []
       const currentDate = new Date(startDateLocal)
       
@@ -339,13 +338,14 @@ function createAvailabilityRecords(events: ParsedEvent[], roomId: string): Avail
         currentDate.setDate(currentDate.getDate() + 1)
       }
 
-      // 🎯 CORRECT LOGIC: Block only intermediate dates (slice(1, -1) equivalent)
-      // This allows same-day turnover on BOTH check-in and checkout days
-      const intermediateDates = allDays.slice(1, -1)
+      // Elegant logic: Handle short vs long stays
+      const datesToBlock = allDays.length <= 2 
+        ? [allDays[0]]           // Short stays: block first day (prevents overbooking)
+        : allDays.slice(1, -1)   // Long stays: same-day turnover (optimizes revenue)
 
-      // Process intermediate dates only
-      for (const date of intermediateDates) {
-        const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD format
+      // Process the dates to block
+      for (const date of datesToBlock) {
+        const dateStr = date.toISOString().split('T')[0]
         
         if (!processedDates.has(dateStr)) {
           processedDates.add(dateStr)
@@ -359,7 +359,6 @@ function createAvailabilityRecords(events: ParsedEvent[], roomId: string): Avail
       }
 
     } catch (dateError) {
-      // Skip events with invalid dates, continue with others
       continue
     }
   }
