@@ -500,7 +500,6 @@ CREATE TABLE room_availability (
   date DATE NOT NULL,
   is_available BOOLEAN NOT NULL DEFAULT true,
   price_override INTEGER, -- Custom price for specific date
-  sync_source TEXT, -- 'manual', 'ical_airbnb', 'ical_booking', etc.
   created_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(room_id, date)
 );
