@@ -1,4 +1,5 @@
-// src/types/booking.ts 
+// src/types/booking.ts
+
 export interface RoomData {
   id: string;
   name: string;
@@ -57,7 +58,7 @@ export interface BookingConfirmation {
   created_at: string;
 }
 
-// 🆕 TIPI AGGIORNATI per supportare diversi tipi di conflitti
+// Platform-aware conflict types for availability checking
 export interface BookingConflict {
   type: 'booking';
   check_in: string;
@@ -68,12 +69,13 @@ export interface BookingConflict {
 export interface BlockedDateConflict {
   type: 'blocked';
   date: string;
+  block_type?: string; // 'full' | 'prep_before' - Platform-aware block type
   reason: string;
 }
 
 export type ConflictType = BookingConflict | BlockedDateConflict;
 
-// 🆕 INTERFACCIA AGGIORNATA per AvailabilityCheck
+// Availability check result interface
 export interface AvailabilityCheck {
   isAvailable: boolean;
   conflicts: ConflictType[];

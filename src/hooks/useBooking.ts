@@ -1,5 +1,4 @@
-// src/hooks/useBooking.ts 
-
+// src/hooks/useBooking.ts
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getRoomId, type RoomType } from '@/utils/roomMapping';
@@ -11,13 +10,10 @@ import type {
   BookingConfirmation,
   AvailabilityCheck,
   PricingCalculation,
-  ConflictType // 🆕 Import new type
+  ConflictType
 } from '@/types/booking';
-import { format, eachDayOfInterval } from 'date-fns';
+import { format, eachDayOfInterval, addDays } from 'date-fns';
 
-/**
- * Hook to fetch room data and pricing
- */
 export const useRoomData = (roomType: RoomType) => {
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +36,6 @@ export const useRoomData = (roomType: RoomType) => {
         
         setRoomData(data);
       } catch (err) {
-        console.error('Error fetching room data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load room data');
       } finally {
         setLoading(false);
@@ -53,10 +48,108 @@ export const useRoomData = (roomType: RoomType) => {
   return { roomData, loading, error };
 };
 
-/**
- * 🆕 FIXED Hook to check room availability for given dates
- * Now checks both bookings table AND room_availability table to prevent overbooking
- */
+const generateNightDates = (checkIn: Date, checkOut: Date): string[] => {
+  const nightStartDates = eachDayOfInterval({ start: checkIn, end: checkOut })
+    .slice(0, -1)
+    .map(date => format(date, 'yyyy-MM-dd'));
+
+  return nightStartDates;
+};
+
+const checkExistingBookings = async (
+  roomId: string,
+  checkInDate: string,
+  nightDates: string[]
+): Promise<ConflictType[]> => {
+  const checkOutDate = nightDates.length > 0 
+    ? format(addDays(new Date(nightDates[nightDates.length - 1]), 1), 'yyyy-MM-dd')
+    : checkInDate;
+
+  const { data: bookingConflicts, error } = await supabase
+    .from('bookings')
+    .select('check_in, check_out, guest_name')
+    .eq('room_id', roomId)
+    .eq('status', 'confirmed')
+    .or(`and(check_in.lt.${checkOutDate},check_out.gt.${checkInDate})`);
+
+  if (error) throw error;
+
+  return (bookingConflicts || []).map(booking => ({
+    type: 'booking' as const,
+    check_in: booking.check_in,
+    check_out: booking.check_out,
+    guest_name: booking.guest_name
+  }));
+};
+
+const checkCheckInDateBlocks = async (
+  roomId: string,
+  checkInDate: string
+): Promise<ConflictType[]> => {
+  const { data: blocks, error } = await (supabase as any)
+    .from('room_availability')
+    .select('date, block_type, is_available')
+    .eq('room_id', roomId)
+    .eq('date', checkInDate)
+    .eq('is_available', false);
+
+  if (error) throw error;
+
+  return (blocks || []).map((block: any) => ({
+    type: 'blocked' as const,
+    date: block.date,
+    block_type: block.block_type || 'full',
+    reason: `Check-in blocked by ${block.block_type === 'prep_before' ? 'preparation time' : 'external calendar'}`
+  }));
+};
+
+const checkNightDatesBlocks = async (
+  roomId: string,
+  nightDates: string[]
+): Promise<ConflictType[]> => {
+  const { data: blocks, error } = await (supabase as any)
+    .from('room_availability')
+    .select('date, block_type, is_available')
+    .eq('room_id', roomId)
+    .in('date', nightDates)
+    .eq('is_available', false);
+
+  if (error) throw error;
+
+  const fullBlocks = (blocks || []).filter((block: any) => {
+    const blockType = block.block_type || 'full';
+    return blockType === 'full';
+  });
+
+  return fullBlocks.map((block: any) => ({
+    type: 'blocked' as const,
+    date: block.date,
+    block_type: 'full',
+    reason: 'Night blocked by external calendar'
+  }));
+};
+
+const checkNightBasedConflicts = async (
+  roomId: string,
+  checkInDate: string,
+  nightDates: string[]
+): Promise<ConflictType[]> => {
+  const allConflicts: ConflictType[] = [];
+
+  const bookingConflicts = await checkExistingBookings(roomId, checkInDate, nightDates);
+  allConflicts.push(...bookingConflicts);
+
+  const checkInConflicts = await checkCheckInDateBlocks(roomId, checkInDate);
+  allConflicts.push(...checkInConflicts);
+
+  if (nightDates.length > 0) {
+    const nightConflicts = await checkNightDatesBlocks(roomId, nightDates);
+    allConflicts.push(...nightConflicts);
+  }
+
+  return allConflicts;
+};
+
 export const useAvailabilityCheck = () => {
   const [checking, setChecking] = useState(false);
 
@@ -70,56 +163,15 @@ export const useAvailabilityCheck = () => {
       
       const roomId = getRoomId(roomType);
       const checkInStr = format(checkIn, 'yyyy-MM-dd');
-      const checkOutStr = format(checkOut, 'yyyy-MM-dd');
-
-      // 🆕 Generate array of all nights in the stay (check-in to check-out exclusive)
-      const stayDates = eachDayOfInterval({ start: checkIn, end: checkOut })
-        .slice(0, -1) // Remove checkout day (not a night stayed)
-        .map(date => format(date, 'yyyy-MM-dd'));
-
-      // Check 1: Conflicting bookings in bookings table
-      const { data: bookingConflicts, error: bookingError } = await supabase
-        .from('bookings')
-        .select('check_in, check_out, guest_name')
-        .eq('room_id', roomId)
-        .eq('status', 'confirmed')
-        .or(`and(check_in.lt.${checkOutStr},check_out.gt.${checkInStr})`);
-
-      if (bookingError) throw bookingError;
-
-      // Check 2: 🆕 Blocked dates in room_availability table (iCal sync blocks)
-      const { data: availabilityConflicts, error: availabilityError } = await supabase
-        .from('room_availability')
-        .select('date, is_available')
-        .eq('room_id', roomId)
-        .eq('is_available', false)
-        .in('date', stayDates);
-
-      if (availabilityError) throw availabilityError;
-
-      // 🆕 Combine all conflicts
-      const allConflicts: ConflictType[] = [
-        ...(bookingConflicts || []).map(booking => ({
-          type: 'booking' as const,
-          check_in: booking.check_in,
-          check_out: booking.check_out,
-          guest_name: booking.guest_name
-        })),
-        ...(availabilityConflicts || []).map(block => ({
-          type: 'blocked' as const,
-          date: block.date,
-          reason: 'Admin blocked or external calendar sync'
-        }))
-      ];
-
-      const isAvailable = allConflicts.length === 0;
+      const nightDates = generateNightDates(checkIn, checkOut);
+      const conflicts = await checkNightBasedConflicts(roomId, checkInStr, nightDates);
+      const isAvailable = conflicts.length === 0;
 
       return {
         isAvailable,
-        conflicts: allConflicts
+        conflicts
       };
     } catch (err) {
-      console.error('Error checking availability:', err);
       return {
         isAvailable: false,
         conflicts: []
@@ -132,11 +184,7 @@ export const useAvailabilityCheck = () => {
   return { checkAvailability, checking };
 };
 
-/**
- * Hook to calculate pricing with dynamic price overrides
- */
 export const usePricingCalculation = (roomType: RoomType) => {
-  // Use the availability management hook to get price function
   const { getPriceForDate, roomData, loading } = useAvailabilityManagement(roomType);
 
   const calculatePricing = useCallback((
@@ -156,8 +204,8 @@ export const usePricingCalculation = (roomType: RoomType) => {
       }
 
       const nights = stayDates.length;
-      const basePrice = roomTotal / nights; // Average nightly rate
-      const cleaningFee = 0; // No cleaning fee for now
+      const basePrice = roomTotal / nights;
+      const cleaningFee = 0;
       const totalPrice = roomTotal + cleaningFee;
 
       return {
@@ -175,7 +223,6 @@ export const usePricingCalculation = (roomType: RoomType) => {
         }
       };
     } catch (error) {
-      console.error('Error calculating pricing:', error);
       return null;
     }
   }, [roomData, getPriceForDate]);
@@ -183,9 +230,6 @@ export const usePricingCalculation = (roomType: RoomType) => {
   return { calculatePricing, loading };
 };
 
-/**
- * Hook to create a new booking
- */
 export const useCreateBooking = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,7 +271,6 @@ export const useCreateBooking = () => {
 
       if (error) throw error;
 
-      // 🆕 Generate confirmation number (not stored in database)
       const confirmationNumber = `TSC-${Date.now().toString(36).toUpperCase()}`;
 
       return {
@@ -235,7 +278,7 @@ export const useCreateBooking = () => {
         confirmation_number: confirmationNumber,
         guest_name: data.guest_name,
         guest_email: data.guest_email,
-        room_name: '', // Will be filled by caller
+        room_name: '',
         check_in: data.check_in,
         check_out: data.check_out,
         total_nights: data.total_nights,
@@ -246,7 +289,6 @@ export const useCreateBooking = () => {
         created_at: data.created_at || new Date().toISOString()
       };
     } catch (err) {
-      console.error('Error creating booking:', err);
       setError(err instanceof Error ? err.message : 'Failed to create booking');
       return null;
     } finally {
